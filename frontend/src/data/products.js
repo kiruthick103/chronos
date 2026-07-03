@@ -1,6 +1,6 @@
 export const products = [
   {
-    id: 1,
+    id: "00000000-0000-0000-0000-000000000001",
     name: "Lumiere Classique",
     brand: "Chronolux",
     price: 4250,
@@ -26,7 +26,7 @@ export const products = [
     },
   },
   {
-    id: 2,
+    id: "00000000-0000-0000-0000-000000000002",
     name: "Abyssal Pro 300",
     brand: "AquaCraft",
     price: 2890,
@@ -52,7 +52,7 @@ export const products = [
     },
   },
   {
-    id: 3,
+    id: "00000000-0000-0000-0000-000000000003",
     name: "Veloce Chrono RS",
     brand: "Rapido",
     price: 7600,
@@ -78,7 +78,7 @@ export const products = [
     },
   },
   {
-    id: 4,
+    id: "00000000-0000-0000-0000-000000000004",
     name: "Nebula GMT",
     brand: "Stellaire",
     price: 3400,
@@ -104,7 +104,7 @@ export const products = [
     },
   },
   {
-    id: 5,
+    id: "00000000-0000-0000-0000-000000000005",
     name: "Heritage Tourbillon",
     brand: "Maison Vell",
     price: 18500,
@@ -131,7 +131,7 @@ export const products = [
     },
   },
   {
-    id: 6,
+    id: "00000000-0000-0000-0000-000000000006",
     name: "Arctic Expedition",
     brand: "NordWatch",
     price: 1990,
@@ -157,7 +157,7 @@ export const products = [
     },
   },
   {
-    id: 7,
+    id: "00000000-0000-0000-0000-000000000007",
     name: "Obsidian Perpetual",
     brand: "Noir Atelier",
     price: 12000,
@@ -184,7 +184,7 @@ export const products = [
     },
   },
   {
-    id: 8,
+    id: "00000000-0000-0000-0000-000000000008",
     name: "Rose Pavé Edition",
     brand: "Fleur Fine",
     price: 6750,
@@ -211,7 +211,7 @@ export const products = [
     },
   },
   {
-    id: 9,
+    id: "00000000-0000-0000-0000-000000000009",
     name: "Moonlight Sapphire",
     brand: "Stellaire",
     price: 5200,
@@ -236,7 +236,7 @@ export const products = [
     },
   },
   {
-    id: 10,
+    id: "00000000-0000-0000-0000-000000000010",
     name: "Pearl Elegance",
     brand: "Cartier",
     price: 8900,
@@ -260,7 +260,7 @@ export const products = [
     },
   },
   {
-    id: 11,
+    id: "00000000-0000-0000-0000-000000000011",
     name: "Aqua Meridian",
     brand: "AquaCraft",
     price: 3800,
@@ -285,7 +285,7 @@ export const products = [
     },
   },
   {
-    id: 12,
+    id: "00000000-0000-0000-0000-000000000012",
     name: "Obsidian Charm",
     brand: "Noir Atelier",
     price: 4100,
@@ -311,7 +311,7 @@ export const products = [
     },
   },
   {
-    id: 13,
+    id: "00000000-0000-0000-0000-000000000013",
     name: "Crystal Precision",
     brand: "Omega",
     price: 5500,
@@ -336,7 +336,7 @@ export const products = [
     },
   },
   {
-    id: 14,
+    id: "00000000-0000-0000-0000-000000000014",
     name: "Emerald Dream",
     brand: "Maison Vell",
     price: 7200,
@@ -361,7 +361,7 @@ export const products = [
     },
   },
   {
-    id: 15,
+    id: "00000000-0000-0000-0000-000000000015",
     name: "Sapphire Sport",
     brand: "NordWatch",
     price: 2990,

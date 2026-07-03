@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { products as initialProducts } from "../data/products";
+import { useAuth } from "./AuthContext";
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
+  const { user } = useAuth();
   // Generate or load stable guest session ID
   const sessionId = (() => {
     try {
@@ -67,7 +69,6 @@ export function CartProvider({ children }) {
   // Fetch products, orders, and offers on mount, and subscribe to Postgres changes in real-time
   useEffect(() => {
     fetchProducts();
-    fetchOrders();
     fetchOffer();
 
     // 1. Realtime Products Subscription
@@ -102,8 +103,8 @@ export function CartProvider({ children }) {
         { event: "*", schema: "public", table: "orders" },
         (payload) => {
           console.log("Realtime order change:", payload);
-          // Refetch orders to load profile and address relations
-          fetchOrders();
+          // Only refetch if user is logged in
+          if (user) fetchOrders();
         }
       )
       .subscribe();
@@ -192,6 +193,14 @@ export function CartProvider({ children }) {
     };
   }, []);
 
+  // Sync cart, wishlist and orders when user login state changes
+  useEffect(() => {
+    fetchCart();
+    fetchWishlist();
+    if (user) fetchOrders();
+    else setOrders([]);
+  }, [user]);
+
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase.from("products").select("*").order("name");
@@ -210,67 +219,45 @@ export function CartProvider({ children }) {
         fetchWishlist(mapped);
         fetchCart(mapped);
       } else {
-        // Database is empty, let's try to seed it
-        console.log("Database products table is empty. Auto-seeding...");
-        setDbStatus({ connected: true, message: "Connected (Database empty, auto-seeding...)" });
-        await seedProductsTable();
+        // Use static data as fallback, no seeding attempt to avoid RLS issues
+        console.log("Database products table is empty. Using static fallback data.");
+        setProducts(initialProducts);
+        setDbStatus({ connected: true, message: "Connected (using static data)" });
+        // Initialize cart/wishlist from localStorage
+        fetchWishlist(initialProducts);
+        fetchCart(initialProducts);
       }
     } catch (err) {
       console.warn("Failed to fetch products from Supabase (using static fallback):", err.message);
       setProducts(initialProducts);
       setDbStatus({ connected: false, message: `Disconnected: ${err.message}` });
+      // Initialize cart/wishlist from localStorage
+      fetchWishlist(initialProducts);
+      fetchCart(initialProducts);
     }
   };
 
+  // Disable auto-seeding to avoid RLS issues
   const seedProductsTable = async () => {
-    const dbItems = initialProducts.map(p => ({
-      name: p.name,
-      brand: p.brand,
-      price: p.price,
-      original_price: p.originalPrice || null,
-      rating: p.rating,
-      reviews: p.reviews,
-      category: p.category,
-      style: p.style,
-      image: p.image,
-      water: p.water,
-      movement: p.movement,
-      gender: p.gender,
-      feature: p.feature,
-      description: p.description,
-      specs: p.specs
-    }));
-
-    const { data, error } = await supabase.from("products").insert(dbItems).select();
-    if (error) {
-      console.warn("Seeding failed (probably due to RLS write policies):", error.message);
-      setDbStatus(prev => ({ connected: false, message: `Connected (RLS blocks writes: ${error.message})` }));
-    } else if (data && data.length > 0) {
-      console.log("Seeding successful!");
-      const mapped = data.map(p => ({
-        ...p,
-        originalPrice: p.original_price,
-      }));
-      setProducts(mapped);
-      setDbStatus({ connected: true, message: "Connected & Seeded successfully" });
-    }
+    console.log("Auto-seeding disabled to avoid RLS conflicts.");
   };
 
   const fetchOrders = async () => {
+    // Only query orders when user is authenticated to avoid RLS errors
+    if (!user) {
+      try {
+        const saved = localStorage.getItem("chronolux_orders");
+        setOrders(saved ? JSON.parse(saved) : []);
+      } catch {
+        setOrders([]);
+      }
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select(`
-          *,
-          profiles (full_name),
-          addresses (address_line1, city, postal_code, country),
-          order_items (
-            id,
-            quantity,
-            price,
-            product_id
-          )
-        `)
+        .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -304,7 +291,7 @@ export function CartProvider({ children }) {
           isActive: dbOffer.is_active,
         });
       } else {
-        // Table exists but is empty, seed initial default offer
+        // Use default local offer, no Supabase insert to avoid RLS issues
         const defaultOffer = {
           id: "summer_2025",
           title: "Summer Prestige",
@@ -315,18 +302,6 @@ export function CartProvider({ children }) {
           watchName: "Chronolux Tourbillon",
           isActive: true,
         };
-        await supabase.from("offers").insert([
-          {
-            id: defaultOffer.id,
-            title: defaultOffer.title,
-            subtitle: defaultOffer.subtitle,
-            discount: defaultOffer.discount,
-            end_time: defaultOffer.endTime,
-            description: defaultOffer.description,
-            watch_name: defaultOffer.watchName,
-            is_active: defaultOffer.isActive,
-          },
-        ]);
         setOffer(defaultOffer);
       }
     } catch (err) {
@@ -337,7 +312,8 @@ export function CartProvider({ children }) {
           setOffer(JSON.parse(saved));
           return;
         }
-      } catch {}
+      } catch {
+      }
       setOffer({
         id: "summer_2025",
         title: "Summer Prestige",
@@ -390,6 +366,7 @@ export function CartProvider({ children }) {
       rating: Number(review.rating) || 5,
       title: review.title || "Excellent",
       comment: review.comment || "",
+      user_id: user ? user.id : null,
     };
 
     const localId = `local_rev_${Date.now()}`;
@@ -522,28 +499,55 @@ export function CartProvider({ children }) {
     let addressId = null;
     let orderId = null;
 
+    if (!user) {
+      // Fallback directly to local order for guests to avoid RLS error
+      const localOrder = {
+        id: `local_order_${Date.now()}`,
+        created_at: new Date().toISOString(),
+        subtotal: orderInfo.subtotal,
+        shipping: orderInfo.shipping,
+        total: orderInfo.total,
+        payment_method: orderInfo.payment_method,
+        payment_status: "pending",
+        order_status: "pending",
+        profiles: {
+          full_name: `${orderInfo.customer.firstName} ${orderInfo.customer.lastName || ""}`.trim()
+        },
+        addresses: {
+          address_line1: orderInfo.customer.address,
+          city: orderInfo.customer.city,
+          postal_code: orderInfo.customer.postal,
+          country: orderInfo.customer.country
+        },
+        customer_email: orderInfo.customer.email,
+        items: orderInfo.items
+      };
+
+      setOrders(prev => [localOrder, ...prev]);
+      
+      try {
+        const saved = localStorage.getItem("chronolux_orders");
+        const localOrdersList = saved ? JSON.parse(saved) : [];
+        localStorage.setItem("chronolux_orders", JSON.stringify([localOrder, ...localOrdersList]));
+      } catch {}
+
+      return { success: true, isLocal: true };
+    }
+
     try {
-      // 1. Profile
-      const { data: profData, error: profErr } = await supabase.from("profiles").insert([{
-        full_name: `${orderInfo.customer.firstName} ${orderInfo.customer.lastName || ""}`.trim(),
-        role: "customer"
+      profileId = user.id;
+      // 2. Address
+      const { data: addrData, error: addrErr } = await supabase.from("addresses").insert([{
+        user_id: profileId,
+        address_line1: orderInfo.customer.address,
+        city: orderInfo.customer.city || "N/A",
+        postal_code: orderInfo.customer.postal || "N/A",
+        country: orderInfo.customer.country || "United States"
       }]).select();
 
-      if (!profErr && profData && profData[0]) {
-        profileId = profData[0].id;
-        
-        // 2. Address
-        const { data: addrData, error: addrErr } = await supabase.from("addresses").insert([{
-          user_id: profileId,
-          address_line1: orderInfo.customer.address,
-          city: orderInfo.customer.city || "N/A",
-          postal_code: orderInfo.customer.postal || "N/A",
-          country: orderInfo.customer.country || "United States"
-        }]).select();
-
-        if (!addrErr && addrData && addrData[0]) {
-          addressId = addrData[0].id;
-        }
+      if (addrErr) throw addrErr;
+      if (addrData && addrData[0]) {
+        addressId = addrData[0].id;
       }
 
       // 3. Order
@@ -573,14 +577,14 @@ export function CartProvider({ children }) {
       const validItems = dbItems.filter(item => item.product_id !== null);
       if (validItems.length > 0) {
         const { error: itemsErr } = await supabase.from("order_items").insert(validItems);
-        if (itemsErr) console.warn("Failed to insert order items to Supabase:", itemsErr.message);
+        if (itemsErr) throw itemsErr;
       }
 
       await fetchOrders();
       return { success: true };
 
     } catch (err) {
-      console.warn("Failed to place order in Supabase (falling back to local):", err.message);
+      console.warn("Failed to place order in Supabase:", err.message);
       
       const localOrder = {
         id: `local_order_${Date.now()}`,
@@ -713,24 +717,26 @@ export function CartProvider({ children }) {
       return [...prev, { ...product, quantity }];
     });
 
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
         .from("carts")
         .select("quantity")
-        .eq("session_id", sessionId)
+        .eq("user_id", user.id)
         .eq("product_id", String(product.id))
-        .single();
+        .maybeSingle();
 
       if (data) {
         await supabase
           .from("carts")
           .update({ quantity: data.quantity + quantity })
-          .eq("session_id", sessionId)
+          .eq("user_id", user.id)
           .eq("product_id", String(product.id));
       } else {
         await supabase
           .from("carts")
-          .insert([{ session_id: sessionId, product_id: String(product.id), quantity }]);
+          .insert([{ user_id: user.id, session_id: sessionId, product_id: String(product.id), quantity }]);
       }
     } catch (err) {
       console.warn("Failed to sync addToCart to Supabase:", err.message);
@@ -739,11 +745,12 @@ export function CartProvider({ children }) {
 
   const removeFromCart = async (productId) => {
     setCart((prev) => prev.filter((item) => item.id !== productId));
+    if (!user) return;
     try {
       await supabase
         .from("carts")
         .delete()
-        .eq("session_id", sessionId)
+        .eq("user_id", user.id)
         .eq("product_id", String(productId));
     } catch (err) {
       console.warn("Failed to sync removeFromCart to Supabase:", err.message);
@@ -751,11 +758,18 @@ export function CartProvider({ children }) {
   };
 
   const fetchCart = async (currentProducts) => {
+    if (!user) {
+      try {
+        const saved = localStorage.getItem("chronolux_cart");
+        if (saved) setCart(JSON.parse(saved));
+      } catch {}
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("carts")
         .select("product_id, quantity")
-        .eq("session_id", sessionId);
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
@@ -778,11 +792,18 @@ export function CartProvider({ children }) {
   };
 
   const fetchWishlist = async (currentProducts) => {
+    if (!user) {
+      try {
+        const saved = localStorage.getItem("chronolux_wishlist");
+        if (saved) setWishlist(JSON.parse(saved));
+      } catch {}
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("wishlists")
         .select("product_id")
-        .eq("session_id", sessionId);
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
@@ -810,11 +831,12 @@ export function CartProvider({ children }) {
         localStorage.setItem("chronolux_wishlist", JSON.stringify(updated));
       } catch {}
 
+      if (!user) return;
       try {
         await supabase
           .from("wishlists")
           .delete()
-          .eq("session_id", sessionId)
+          .eq("user_id", user.id)
           .eq("product_id", String(product.id));
       } catch (err) {
         console.warn("Failed to remove item from Supabase wishlist:", err.message);
@@ -826,10 +848,11 @@ export function CartProvider({ children }) {
         localStorage.setItem("chronolux_wishlist", JSON.stringify(updated));
       } catch {}
 
+      if (!user) return;
       try {
         await supabase
           .from("wishlists")
-          .insert([{ session_id: sessionId, product_id: String(product.id) }]);
+          .insert([{ user_id: user.id, session_id: sessionId, product_id: String(product.id) }]);
       } catch (err) {
         console.warn("Failed to add item to Supabase wishlist:", err.message);
       }
@@ -847,11 +870,12 @@ export function CartProvider({ children }) {
       )
     );
 
+    if (!user) return;
     try {
       await supabase
         .from("carts")
         .update({ quantity: Number(quantity) })
-        .eq("session_id", sessionId)
+        .eq("user_id", user.id)
         .eq("product_id", String(productId));
     } catch (err) {
       console.warn("Failed to sync updateQuantity to Supabase:", err.message);
@@ -860,11 +884,12 @@ export function CartProvider({ children }) {
 
   const clearCart = async () => {
     setCart([]);
+    if (!user) return;
     try {
       await supabase
         .from("carts")
         .delete()
-        .eq("session_id", sessionId);
+        .eq("user_id", user.id);
     } catch (err) {
       console.warn("Failed to sync clearCart to Supabase:", err.message);
     }
