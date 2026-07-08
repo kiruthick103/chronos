@@ -96,6 +96,48 @@ function AppContent() {
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [siteLoaded, setSiteLoaded] = useState(false); // splash for main site
 
+  // Verify backend connectivity and log results to the console
+  useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    
+    if (!apiUrl) {
+      console.warn("⚠️ VITE_API_URL environment variable is not defined.");
+      console.error(
+        "❌ Backend Connection Failed\n" +
+        "Reason: Missing environment variable VITE_API_URL.\n" +
+        "Fix: Please create/verify the .env file in the React project root with VITE_API_URL " +
+        "pointing to your backend (locally) or set it in the Vercel dashboard (production)."
+      );
+      return;
+    }
+
+    fetch(`${apiUrl}/api/test`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("✅ Backend Connected Successfully");
+        console.log("Backend Response:", data);
+      })
+      .catch((err) => {
+        console.error("❌ Backend Connection Failed");
+        console.error(err);
+        
+        // Automated diagnostic helper in the console
+        console.group("🔍 Diagnostic Analysis:");
+        console.log(`- API Endpoint checked: ${apiUrl}/api/test`);
+        console.log("- Possible issues to check:");
+        console.log("  1. Cold Start: Render free plans spin down after 15 mins of inactivity. It can take ~50 seconds to boot back up. Try refreshing the page.");
+        console.log("  2. CORS Policy: Check if CORS package is enabled in the backend using \`app.use(cors())\`.");
+        console.log("  3. Mixed Content: If the site is HTTPS (Vercel) and backend is HTTP, the browser will block the request. Ensure the backend URL starts with https://.");
+        console.log("  4. Offline: Check if the Render service has been suspended or is currently rebuilding.");
+        console.groupEnd();
+      });
+  }, []);
+
   // When user logs in, switch to home and start the splash timer
   useEffect(() => {
     if (user) {
