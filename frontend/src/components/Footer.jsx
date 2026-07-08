@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+
 const footerLinks = {
   Collections: ["Dress Watches", "Dive Watches", "Chronographs", "Smart Luxury", "Vintage Pieces", "Limited Editions"],
   Brands: ["Rolex", "Patek Philippe", "Omega", "Cartier", "TAG Heuer", "IWC", "Breitling", "Audemars Piguet"],
@@ -42,6 +44,24 @@ const socials = [
 ];
 
 export default function Footer({ setPage }) {
+  const [backendStatus, setBackendStatus] = useState("checking");
+
+  useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    fetch(`${apiUrl}/api/test`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.message) {
+          setBackendStatus("online");
+        } else {
+          setBackendStatus("offline");
+        }
+      })
+      .catch(() => {
+        setBackendStatus("offline");
+      });
+  }, []);
+
   return (
     <footer className="bg-[#060608] border-t border-white/5">
       {/* Newsletter strip */}
@@ -140,9 +160,21 @@ export default function Footer({ setPage }) {
       {/* Bottom bar */}
       <div className="border-t border-white/5 px-6 py-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-white/20 text-xs">
-            © 2025 Chronolux. All rights reserved. Prices in USD. All timepieces independently authenticated.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-white/20 text-xs">
+            <p>
+              © 2025 Chronolux. All rights reserved. Prices in USD. All timepieces independently authenticated.
+            </p>
+            <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
+              <span className={`w-2 h-2 rounded-full ${
+                backendStatus === "online" ? "bg-green-500 shadow-sm shadow-green-500/50" :
+                backendStatus === "offline" ? "bg-red-500 shadow-sm shadow-red-500/50" :
+                "bg-yellow-500 animate-pulse"
+              }`} />
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-white/40">
+                Backend: {backendStatus === "online" ? "Connected" : backendStatus === "offline" ? "Offline" : "Checking..."}
+              </span>
+            </div>
+          </div>
           <div className="flex items-center gap-6">
             {["Privacy Policy", "Terms of Use", "Cookie Settings", "Accessibility"].map(l => (
               <a key={l} href="#" className="text-white/20 text-xs hover:text-white/40 transition-colors">

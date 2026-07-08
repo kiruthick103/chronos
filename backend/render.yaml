@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: chronos-backend-alone
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    envVars:
+      - key: NODE_ENV
+        value: production
+    startCommand: node server.js
