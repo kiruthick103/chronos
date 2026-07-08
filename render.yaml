@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: chronos-back
+    runtime: node
+    repo: .
+    rootDir: backend
+    plan: free
+    region: oregon
+    branch: main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Express listens on PORT. server.js uses PORT=5000 by default,
+      # Render sets PORT automatically.
+    startCommand: node server.js
+
