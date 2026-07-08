@@ -1,12 +1,22 @@
+// Load environment variables from .env
+require('dotenv').config();
+
 // Import Express framework using CommonJS syntax
 const express = require('express');
 const cors = require('cors');
+const paymentRouter = require('./routes/payment');
 
 // Create an Express application instance
 const app = express();
 
 // Enable Cross-Origin Resource Sharing (CORS)
 app.use(cors());
+
+// Enable JSON body parsing middleware
+app.use(express.json());
+
+// Register payment router
+app.use('/api/payment', paymentRouter);
 
 // Define the port number the server will listen on (dynamically assigned by Render or defaulted to 5000)
 const PORT = process.env.PORT || 5000;

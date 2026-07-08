@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import WatchImage from "./WatchImage";
+import { executeRazorpayPayment } from "../services/paymentService";
 
 const shippingOptions = [
   { id: "standard", name: "Standard (5-7 days)", cost: 0 },
@@ -60,34 +61,54 @@ export default function Cart() {
       return;
     }
     setPlacing(true);
+
+    // Convert USD to INR for Razorpay test environment compatibility (Indian Razorpay accounts only support INR in test mode)
+    const inrTotal = Math.round(total * 83);
+
     try {
-      const orderInfo = {
-        customer: {
+      await executeRazorpayPayment({
+        amount: inrTotal,
+        currency: "INR",
+        customerInfo: {
           email: formData.email,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          address: formData.address,
-          city: formData.city,
-          postal: formData.postal,
-          country: formData.country,
+          phone: "9999999999" // Prefill default test phone number
         },
-        items: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
-        subtotal: cartTotal,
-        shipping: shippingCost,
-        total: total,
-        payment_method: "demo_card",
-      };
-      await addOrder(orderInfo);
-      alert("✓ Order placed successfully!\n\nOrder Total: $" + total.toFixed(2) + "\n\nYour order has been saved and is visible in the Admin Panel.");
-      clearCart();
-      setCheckout(false);
-      setFormData({ email: "", firstName: "", lastName: "", address: "", city: "", postal: "", country: "United States" });
+        onSuccess: async (paymentDetails) => {
+          const orderInfo = {
+            customer: {
+              email: formData.email,
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              address: formData.address,
+              city: formData.city,
+              postal: formData.postal,
+              country: formData.country,
+            },
+            items: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
+            subtotal: cartTotal,
+            shipping: shippingCost,
+            total: total, // Save the actual USD total in local DB
+            payment_method: "Razorpay",
+            payment_id: paymentDetails.paymentId,
+            razorpay_order_id: paymentDetails.orderId,
+          };
+          await addOrder(orderInfo);
+          alert(`✓ Payment successful and verified!\n\nOrder Total: $${total.toFixed(2)} (₹${inrTotal.toLocaleString()})\nPayment ID: ${paymentDetails.paymentId}\n\nYour order has been recorded.`);
+          clearCart();
+          setCheckout(false);
+          setFormData({ email: "", firstName: "", lastName: "", address: "", city: "", postal: "", country: "United States" });
+          setPlacing(false);
+        },
+        onFailure: (errorMessage) => {
+          alert(`❌ Payment Failed:\n${errorMessage}`);
+          setPlacing(false);
+        }
+      });
     } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Order placed (locally). Check Admin Panel for details.");
-      clearCart();
-      setCheckout(false);
-    } finally {
+      console.error("Checkout initialization error:", err);
+      alert(`Could not initiate Razorpay checkout: ${err.message}`);
       setPlacing(false);
     }
   };
@@ -341,7 +362,8 @@ export default function Cart() {
               {/* Order summary in checkout */}
               <div className="glass rounded-xl p-5 mb-8 border-white/10">
                 <p className="text-white/60 text-sm mb-1">Order Total: <span className="text-white font-bold text-2xl">${total.toFixed(2)}</span></p>
-                <p className="text-white/40 text-xs">{cart.length} item{cart.length !== 1 ? "s" : ""} • {shippingOptions.find(s => s.id === shipping)?.name}</p>
+                <p className="text-white/40 text-xs mb-2">{cart.length} item{cart.length !== 1 ? "s" : ""} • {shippingOptions.find(s => s.id === shipping)?.name}</p>
+                <p className="text-[#C9A84C] text-xs font-semibold">Equivalent in INR: ₹{Math.round(total * 83).toLocaleString()} (for Razorpay Test mode)</p>
               </div>
 
               <button
@@ -349,11 +371,11 @@ export default function Cart() {
                 disabled={placing}
                 className="btn-gold w-full py-4 text-[#0A0A0F] text-sm font-black tracking-[0.2em] uppercase rounded-md shadow-lg mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {placing ? "Placing Order..." : "Place Order Securely"}
+                {placing ? "Processing Payment..." : "Pay Now with Razorpay"}
               </button>
 
               <p className="text-white/30 text-xs text-center leading-relaxed">
-                ✓ SSL Encrypted • ✓ Secure Payment • ✓ No Actual Charge (Demo Mode)
+                ✓ SSL Encrypted • ✓ Secure Payment • ✓ Razorpay Integration
               </p>
             </form>
           </div>
