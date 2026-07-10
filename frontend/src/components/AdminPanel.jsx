@@ -1133,16 +1133,8 @@ CREATE POLICY "Allow public read payments" ON payments FOR SELECT USING (true);
 CREATE POLICY "Allow public write payments" ON payments FOR INSERT WITH CHECK (true);
 
 -- 12. Enable Realtime database replication for instant UI updates across clients
-BEGIN;
-  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS products, orders, offers, reviews, wishlists, carts, payments;
-  ALTER PUBLICATION supabase_realtime ADD TABLE products;
-  ALTER PUBLICATION supabase_realtime ADD TABLE orders;
-  ALTER PUBLICATION supabase_realtime ADD TABLE offers;
-  ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
-  ALTER PUBLICATION supabase_realtime ADD TABLE wishlists;
-  ALTER PUBLICATION supabase_realtime ADD TABLE carts;
-  ALTER PUBLICATION supabase_realtime ADD TABLE payments;
-COMMIT;`}
+DROP PUBLICATION IF EXISTS supabase_realtime;
+CREATE PUBLICATION supabase_realtime FOR TABLE products, orders, offers, reviews, wishlists, carts, payments;`}
                   </pre>
                 </div>
               </div>
