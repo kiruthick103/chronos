@@ -47,7 +47,9 @@ export function AuthProvider({ children }) {
     }
     setUser(sessionUser);
     const profile = await fetchProfile(sessionUser);
-    setIsAdmin(profile?.is_admin === true);
+    const isAdminUser = profile?.is_admin === true;
+    console.log(`[Auth] Resolved User: ${sessionUser.email} | Is Admin: ${isAdminUser}`);
+    setIsAdmin(isAdminUser);
     setLoading(false);
   }, []);
 
