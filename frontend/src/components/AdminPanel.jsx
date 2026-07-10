@@ -6,6 +6,7 @@ export default function AdminPanel() {
   const {
     products,
     orders,
+    payments = [],
     offer,
     dbStatus,
     addProduct,
@@ -15,7 +16,8 @@ export default function AdminPanel() {
     deleteOrder,
     updateOffer,
     refreshProducts,
-    refreshOrders
+    refreshOrders,
+    refreshPayments
   } = useCart();
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -247,6 +249,7 @@ export default function AdminPanel() {
             { id: "overview", name: "Overview", icon: "📊" },
             { id: "products", name: "Products Manager", icon: "⌚" },
             { id: "orders", name: "Orders Tracker", icon: "📦" },
+            { id: "payments", name: "Payments Tracker", icon: "💳" },
             { id: "campaign", name: "Campaigns & Offers", icon: "🔥" },
             { id: "setup", name: "Database Setup", icon: "⚙️" }
           ].map(tab => (
@@ -913,6 +916,62 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* -------------------- PAYMENTS TRACKER TAB -------------------- */}
+        {activeTab === "payments" && (
+          <div className="space-y-6 animate-fade-up">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold">Razorpay Payment Transactions</h3>
+              <span className="text-xs text-white/30">{payments.length} successful payment{payments.length !== 1 ? "s" : ""} logged</span>
+            </div>
+
+            <div className="glass rounded-2xl border-white/5 overflow-hidden shadow-lg-premium">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.02]">
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-white/40">Payment ID</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-white/40">Order Reference</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-white/40">Client Info</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-white/40">Amount Charged</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-white/40">Currency</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-white/40 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((p) => (
+                      <tr key={p.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-all">
+                        <td className="p-4 font-mono text-xs text-white/80">{p.razorpay_payment_id}</td>
+                        <td className="p-4 font-mono text-xs text-white/55">
+                          <p>Razorpay: {p.razorpay_order_id}</p>
+                          <p className="text-[10px] text-white/35 mt-0.5">Local Order: #{typeof p.order_id === "string" ? p.order_id.substring(0, 8).toUpperCase() : p.order_id}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className="text-sm font-semibold text-white/80">{p.profiles?.full_name || "Demo Customer"}</p>
+                          <p className="text-[10px] text-white/35 mt-0.5">{new Date(p.created_at).toLocaleString()}</p>
+                        </td>
+                        <td className="p-4 font-black text-sm text-[#C9A84C]">₹{p.amount.toLocaleString()}</td>
+                        <td className="p-4 font-bold text-xs text-white/60">{p.currency}</td>
+                        <td className="p-4 text-center">
+                          <span className="text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/25">
+                            {p.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {payments.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="p-8 text-center text-white/30 text-sm">
+                          No Razorpay transactions have been recorded in the database yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* -------------------- DATABASE SETUP TAB -------------------- */}
         {activeTab === "setup" && (
           <div className="space-y-6 max-w-4xl mx-auto animate-fade-up">
@@ -1054,15 +1113,35 @@ CREATE POLICY "Allow public read carts" ON carts FOR SELECT USING (true);
 CREATE POLICY "Allow public write carts" ON carts FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update carts" ON carts FOR ALL USING (true);
 
--- 11. Enable Realtime database replication for instant UI updates across clients
+-- 11. Create payments table (for Razorpay payment tracking)
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  razorpay_order_id TEXT NOT NULL,
+  razorpay_payment_id TEXT NOT NULL,
+  razorpay_signature TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'INR',
+  status TEXT NOT NULL DEFAULT 'captured',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read payments" ON payments;
+DROP POLICY IF EXISTS "Allow public write payments" ON payments;
+CREATE POLICY "Allow public read payments" ON payments FOR SELECT USING (true);
+CREATE POLICY "Allow public write payments" ON payments FOR INSERT WITH CHECK (true);
+
+-- 12. Enable Realtime database replication for instant UI updates across clients
 BEGIN;
-  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS products, orders, offers, reviews, wishlists, carts;
+  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS products, orders, offers, reviews, wishlists, carts, payments;
   ALTER PUBLICATION supabase_realtime ADD TABLE products;
   ALTER PUBLICATION supabase_realtime ADD TABLE orders;
   ALTER PUBLICATION supabase_realtime ADD TABLE offers;
   ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
   ALTER PUBLICATION supabase_realtime ADD TABLE wishlists;
   ALTER PUBLICATION supabase_realtime ADD TABLE carts;
+  ALTER PUBLICATION supabase_realtime ADD TABLE payments;
 COMMIT;`}
                   </pre>
                 </div>

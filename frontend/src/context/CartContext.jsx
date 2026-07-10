@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   // Generate or load stable guest session ID
   const sessionId = (() => {
     try {
@@ -41,6 +41,7 @@ export function CartProvider({ children }) {
 
   const [products, setProducts] = useState(initialProducts);
   const [orders, setOrders] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [reviewsState, setReviewsState] = useState({});
   const [dbStatus, setDbStatus] = useState({ connected: false, message: "Connecting to Supabase..." });
   
@@ -183,6 +184,19 @@ export function CartProvider({ children }) {
       )
       .subscribe();
 
+    // 7. Realtime Payments Subscription
+    const paymentsChannel = supabase
+      .channel("realtime-payments")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payments" },
+        (payload) => {
+          console.log("Realtime payment change:", payload);
+          if (user) fetchPayments();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(productsChannel);
       supabase.removeChannel(ordersChannel);
@@ -190,16 +204,22 @@ export function CartProvider({ children }) {
       supabase.removeChannel(reviewsChannel);
       supabase.removeChannel(wishlistsChannel);
       supabase.removeChannel(cartsChannel);
+      supabase.removeChannel(paymentsChannel);
     };
   }, []);
 
-  // Sync cart, wishlist and orders when user login state changes
+  // Sync cart, wishlist, orders and payments when user login state changes
   useEffect(() => {
     fetchCart();
     fetchWishlist();
-    if (user) fetchOrders();
-    else setOrders([]);
-  }, [user]);
+    if (user) {
+      fetchOrders();
+      fetchPayments();
+    } else {
+      setOrders([]);
+      setPayments([]);
+    }
+  }, [user, isAdmin]);
 
   const fetchProducts = async () => {
     try {
@@ -271,6 +291,25 @@ export function CartProvider({ children }) {
       } catch {
         setOrders([]);
       }
+    }
+  };
+
+  const fetchPayments = async () => {
+    if (!user) {
+      setPayments([]);
+      return;
+    }
+    try {
+      let query = supabase.from("payments").select("*, profiles(full_name)");
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+      setPayments(data || []);
+    } catch (err) {
+      console.warn("Failed to fetch payments from Supabase:", err.message);
+      setPayments([]);
     }
   };
 
@@ -580,7 +619,24 @@ export function CartProvider({ children }) {
         if (itemsErr) throw itemsErr;
       }
 
+      // 5. Payment details (if Razorpay was used)
+      if (orderInfo.payment_method === "Razorpay") {
+        const dbPayment = {
+          user_id: profileId,
+          order_id: orderId,
+          razorpay_order_id: orderInfo.razorpay_order_id,
+          razorpay_payment_id: orderInfo.payment_id,
+          razorpay_signature: orderInfo.signature || "verified",
+          amount: Math.round(orderInfo.total * 83), // stored in INR
+          currency: "INR",
+          status: "captured"
+        };
+        const { error: payErr } = await supabase.from("payments").insert([dbPayment]);
+        if (payErr) console.warn("Failed to save payment details to Supabase:", payErr.message);
+      }
+
       await fetchOrders();
+      await fetchPayments();
       return { success: true };
 
     } catch (err) {
@@ -914,6 +970,7 @@ export function CartProvider({ children }) {
         wishlist,
         products,
         orders,
+        payments,
         offer,
         dbStatus,
         addToCart,
@@ -933,6 +990,7 @@ export function CartProvider({ children }) {
         addReview,
         refreshProducts: fetchProducts,
         refreshOrders: fetchOrders,
+        refreshPayments: fetchPayments,
         cartTotal,
         cartCount,
         wishlistCount,

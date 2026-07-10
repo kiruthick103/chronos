@@ -93,6 +93,7 @@ export default function Cart() {
             payment_method: "Razorpay",
             payment_id: paymentDetails.paymentId,
             razorpay_order_id: paymentDetails.orderId,
+            signature: paymentDetails.signature,
           };
           await addOrder(orderInfo);
           alert(`✓ Payment successful and verified!\n\nOrder Total: $${total.toFixed(2)} (₹${inrTotal.toLocaleString()})\nPayment ID: ${paymentDetails.paymentId}\n\nYour order has been recorded.`);

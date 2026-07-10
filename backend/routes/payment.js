@@ -67,11 +67,13 @@ router.post('/verify', (req, res) => {
     console.log(`[Razorpay] Verifying signature. Expected: ${expectedSignature}, Received: ${razorpay_signature}`);
 
     if (razorpay_signature === expectedSignature) {
+      console.log(`✅ [Razorpay] Payment verified successfully! Order ID: ${razorpay_order_id} | Payment ID: ${razorpay_payment_id}`);
       return res.json({
         success: true,
         message: 'Payment verified successfully'
       });
     } else {
+      console.warn(`❌ [Razorpay] Payment signature mismatch! Expected: ${expectedSignature}, Received: ${razorpay_signature}`);
       return res.status(400).json({
         success: false,
         error: 'Invalid signature verification failed'
