@@ -61,8 +61,8 @@ export default function Cart() {
       return;
     }
     setPlacing(true);
-    // Convert USD to INR and cap at ₹99,999 for Razorpay Test Mode transaction limit compatibility
-    const inrTotal = Math.min(Math.round(total * 83), 99999);
+    // Convert USD to INR and cap at ₹1,000 for Razorpay Test Mode transaction limit compatibility
+    const inrTotal = Math.min(Math.round(total * 83), 1000);
  
     try {
       await executeRazorpayPayment({
