@@ -61,8 +61,8 @@ export default function Cart() {
       return;
     }
     setPlacing(true);
-    // Convert USD to INR and cap at ₹1,000 for Razorpay Test Mode transaction limit compatibility
-    const inrTotal = Math.min(Math.round(total * 83), 1000);
+    // Use a small fixed test amount (₹100) for Razorpay Test Mode — test accounts have strict transaction limits
+    const inrTotal = 100;
  
     try {
       await executeRazorpayPayment({
@@ -96,7 +96,7 @@ export default function Cart() {
             inr_amount: inrTotal,
           };
           await addOrder(orderInfo);
-          alert(`✓ Payment successful and verified!\n\nOrder Total: $${total.toFixed(2)} (Test Charged: ₹${inrTotal.toLocaleString()})\nPayment ID: ${paymentDetails.paymentId}\n\nYour order has been recorded.`);
+          alert(`✓ Payment successful and verified!\n\nOrder Total: $${total.toFixed(2)} (Test Mode: ₹${inrTotal})\nPayment ID: ${paymentDetails.paymentId}\n\nYour order has been recorded.`);
           clearCart();
           setCheckout(false);
           setFormData({ email: "", firstName: "", lastName: "", address: "", city: "", postal: "", country: "United States" });

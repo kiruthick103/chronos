@@ -627,7 +627,7 @@ export function CartProvider({ children }) {
           razorpay_order_id: orderInfo.razorpay_order_id,
           razorpay_payment_id: orderInfo.payment_id,
           razorpay_signature: orderInfo.signature || "verified",
-          amount: Math.round(orderInfo.total * 83), // stored in INR
+          amount: orderInfo.inr_amount || Math.round(orderInfo.total * 83), // use actual test amount charged
           currency: "INR",
           status: "captured"
         };
