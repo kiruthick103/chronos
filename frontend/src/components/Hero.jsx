@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Animated ticking watch SVG
 function HeroWatch() {
@@ -144,6 +144,27 @@ function HeroWatch() {
 }
 
 export default function Hero({ setPage }) {
+  const [showFilm, setShowFilm] = useState(false);
+  const videoRef = useRef(null);
+
+  // Pause video and reset when modal closes
+  useEffect(() => {
+    if (!showFilm && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    // Lock body scroll when modal is open
+    document.body.style.overflow = showFilm ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showFilm]);
+
+  // Close modal on ESC key
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") setShowFilm(false); };
+    if (showFilm) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [showFilm]);
+
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden pt-16" aria-label="Hero">
 
@@ -199,7 +220,7 @@ export default function Hero({ setPage }) {
               </svg>
             </button>
             <button
-              onClick={() => alert("Playing Brand Film...")}
+              onClick={() => setShowFilm(true)}
               className="group flex items-center gap-3 text-white/50 hover:text-white transition-all duration-300 hover-lift"
             >
               <span className="relative w-12 h-12 rounded-full border-2 border-white/15 group-hover:border-[#C9A84C]/60 flex items-center justify-center transition-all duration-300 group-hover:bg-[#C9A84C]/10 group-hover:shadow-[0_0_20px_rgba(201,168,76,0.2)]">
@@ -263,6 +284,62 @@ export default function Hero({ setPage }) {
         <span className="text-[0.6rem] text-white/20 tracking-[0.3em] uppercase">Scroll to Explore</span>
         <div className="w-px h-12 bg-gradient-to-b from-[#C9A84C]/40 via-[#C9A84C]/20 to-transparent"/>
       </div>
+
+      {/* ── Cinematic Brand Film Modal ── */}
+      {showFilm && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ animation: "fadeIn 0.4s ease" }}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/95 backdrop-blur-xl"
+            onClick={() => setShowFilm(false)}
+          />
+
+          {/* Close button */}
+          <button
+            onClick={() => setShowFilm(false)}
+            className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all duration-300 group"
+            aria-label="Close video"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="group-hover:rotate-90 transition-transform duration-300">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+
+          {/* CHRONOLUX label */}
+          <div className="absolute top-7 left-8 z-10 flex items-center gap-3">
+            <span className="text-[0.65rem] tracking-[0.35em] uppercase text-[#C9A84C]/70 font-semibold">Chronolux</span>
+            <span className="text-[0.55rem] tracking-[0.2em] uppercase text-white/20">Brand Film</span>
+          </div>
+
+          {/* Video container */}
+          <div className="relative z-10 w-full max-w-5xl mx-4 sm:mx-8 rounded-2xl overflow-hidden shadow-2xl border border-white/5" style={{ aspectRatio: "16/9" }}>
+            <video
+              ref={videoRef}
+              src="/brand-film.mp4"
+              autoPlay
+              controls
+              playsInline
+              className="w-full h-full object-cover"
+              onEnded={() => setShowFilm(false)}
+            />
+          </div>
+
+          {/* Bottom subtle label */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 text-[0.55rem] tracking-[0.3em] uppercase text-white/15">
+            Press Esc or click outside to close
+          </div>
+
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to   { opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
     </section>
   );
 }
