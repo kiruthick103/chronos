@@ -61,8 +61,8 @@ export default function Cart() {
       return;
     }
     setPlacing(true);
-    // Use a small fixed test amount (₹100) for Razorpay Test Mode — test accounts have strict transaction limits
-    const inrTotal = 100;
+    // Convert USD to INR and cap at ₹10,000 for Razorpay Test Mode compatibility
+    const inrTotal = Math.min(Math.round(total * 83), 10000);
  
     try {
       await executeRazorpayPayment({
@@ -96,7 +96,7 @@ export default function Cart() {
             inr_amount: inrTotal,
           };
           await addOrder(orderInfo);
-          alert(`✓ Payment successful and verified!\n\nOrder Total: $${total.toFixed(2)} (Test Mode: ₹${inrTotal})\nPayment ID: ${paymentDetails.paymentId}\n\nYour order has been recorded.`);
+          alert(`✓ Payment successful and verified!\n\nOrder Total: $${total.toFixed(2)} (₹${inrTotal.toLocaleString()} charged in test mode)\nPayment ID: ${paymentDetails.paymentId}\n\nYour order has been recorded.`);
           clearCart();
           setCheckout(false);
           setFormData({ email: "", firstName: "", lastName: "", address: "", city: "", postal: "", country: "United States" });
@@ -361,10 +361,30 @@ export default function Cart() {
               </div>
 
               {/* Order summary in checkout */}
-              <div className="glass rounded-xl p-5 mb-8 border-white/10">
+              <div className="glass rounded-xl p-5 mb-6 border-white/10">
                 <p className="text-white/60 text-sm mb-1">Order Total: <span className="text-white font-bold text-2xl">${total.toFixed(2)}</span></p>
                 <p className="text-white/40 text-xs mb-2">{cart.length} item{cart.length !== 1 ? "s" : ""} • {shippingOptions.find(s => s.id === shipping)?.name}</p>
-                <p className="text-[#C9A84C] text-xs font-semibold">Equivalent in INR: ₹{Math.round(total * 83).toLocaleString()} (for Razorpay Test mode)</p>
+                <p className="text-[#C9A84C] text-xs font-semibold">Razorpay Charge: ₹{Math.min(Math.round(total * 83), 10000).toLocaleString()} {Math.round(total * 83) > 10000 ? "(capped for test mode)" : ""}</p>
+              </div>
+
+              {/* Test Mode Card Instructions */}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-6">
+                <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">🧪 Razorpay Test Mode — Use These Card Details</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <p className="text-white/40">Card Number</p>
+                    <p className="text-white font-mono font-bold">4111 1111 1111 1111</p>
+                  </div>
+                  <div>
+                    <p className="text-white/40">Expiry</p>
+                    <p className="text-white font-mono font-bold">12/30</p>
+                  </div>
+                  <div>
+                    <p className="text-white/40">CVV</p>
+                    <p className="text-white font-mono font-bold">123</p>
+                  </div>
+                </div>
+                <p className="text-white/30 text-xs mt-2">If asked for OTP, enter any number (e.g. 1234). No real money is charged.</p>
               </div>
 
               <button
@@ -372,11 +392,11 @@ export default function Cart() {
                 disabled={placing}
                 className="btn-gold w-full py-4 text-[#0A0A0F] text-sm font-black tracking-[0.2em] uppercase rounded-md shadow-lg mb-4 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {placing ? "Processing Payment..." : "Pay Now with Razorpay"}
+                {placing ? "Processing Payment..." : `Pay ₹${Math.min(Math.round(total * 83), 10000).toLocaleString()} with Razorpay`}
               </button>
 
               <p className="text-white/30 text-xs text-center leading-relaxed">
-                ✓ SSL Encrypted • ✓ Secure Payment • ✓ Razorpay Integration
+                ✓ SSL Encrypted • ✓ Secure Payment • ✓ Razorpay Test Mode
               </p>
             </form>
           </div>
