@@ -46,25 +46,24 @@ export default function Login({ setPage }) {
     await new Promise((r) => setTimeout(r, 600));
     let err = await doLogin(demoEmail, demoPassword);
 
-    // If it's a regular user and doesn't exist, try to auto-sign up
-    if (role === "user" && err && (err.message.includes("Invalid login credentials") || err.message.includes("not found"))) {
-      console.log("Demo user not found, attempting auto-registration...");
+    // If the demo account doesn't exist yet, auto-register it and retry login
+    if (err && (err.message.includes("Invalid login credentials") || err.message.includes("not found"))) {
+      console.log(`Demo ${role} not found, attempting auto-registration...`);
+      const signUpMeta = role === "admin"
+        ? { full_name: "Admin Kiruthick", is_admin: true, role: "admin" }
+        : { full_name: "Demo Customer", is_admin: false };
+
       const { error: signUpError } = await supabase.auth.signUp({
-        email: USER_EMAIL,
-        password: USER_PASSWORD,
-        options: {
-          data: {
-            full_name: "Demo Customer",
-            is_admin: false
-          }
-        }
+        email: demoEmail,
+        password: demoPassword,
+        options: { data: signUpMeta }
       });
 
       if (signUpError) {
         err = signUpError;
       } else {
         // Retry logging in after signup
-        err = await doLogin(USER_EMAIL, USER_PASSWORD);
+        err = await doLogin(demoEmail, demoPassword);
       }
     }
 
