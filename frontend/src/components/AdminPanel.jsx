@@ -140,6 +140,45 @@ export default function AdminPanel() {
   // Delete Confirm State
   const [deleteConfirm, setDeleteConfirm] = useState({ type: null, id: null });
 
+  // Offer / Campaign Form State
+  const [offerForm, setOfferForm] = useState({
+    title: "",
+    subtitle: "",
+    discount: 0,
+    description: "",
+    watchName: "",
+    endTimeHours: 48
+  });
+  const [offerSuccess, setOfferSuccess] = useState("");
+
+  // Sync offer from context once loaded
+  useEffect(() => {
+    if (offer) {
+      setOfferForm({
+        title: offer.title || "",
+        subtitle: offer.subtitle || "",
+        discount: offer.discount || 0,
+        description: offer.description || "",
+        watchName: offer.watchName || "",
+        endTimeHours: 48
+      });
+    }
+  }, [offer]);
+
+  const handleOfferSubmit = (e) => {
+    e.preventDefault();
+    updateOffer({
+      title: offerForm.title,
+      subtitle: offerForm.subtitle,
+      discount: Number(offerForm.discount),
+      description: offerForm.description,
+      watchName: offerForm.watchName,
+      endTime: Date.now() + Number(offerForm.endTimeHours) * 3600 * 1000
+    });
+    setOfferSuccess("✓ Offer campaign updated successfully!");
+    setTimeout(() => setOfferSuccess(""), 3000);
+  };
+
   // Fetch unique categories for product filters
   const categories = ["All", ...Array.from(new Set(products.map(p => p.category)))];
 
@@ -1557,7 +1596,7 @@ export default function AdminPanel() {
                         <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5">Campaign Title</label>
                         <input
                           type="text"
-                          defaultValue={offer.title}
+                          defaultValue={offer?.title || ""}
                           onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A84C]"
                         />
@@ -1566,7 +1605,7 @@ export default function AdminPanel() {
                         <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5">Subtitle Header</label>
                         <input
                           type="text"
-                          defaultValue={offer.subtitle}
+                          defaultValue={offer?.subtitle || ""}
                           onChange={(e) => setOfferForm({ ...offerForm, subtitle: e.target.value })}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A84C]"
                         />
@@ -1578,7 +1617,7 @@ export default function AdminPanel() {
                         <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5">Discount Percentage (%)</label>
                         <input
                           type="number"
-                          defaultValue={offer.discount}
+                          defaultValue={offer?.discount || 0}
                           onChange={(e) => setOfferForm({ ...offerForm, discount: e.target.value })}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A84C]"
                         />
@@ -1587,7 +1626,7 @@ export default function AdminPanel() {
                         <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5">Promo Watch Model</label>
                         <input
                           type="text"
-                          defaultValue={offer.watchName}
+                          defaultValue={offer?.watchName || ""}
                           onChange={(e) => setOfferForm({ ...offerForm, watchName: e.target.value })}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A84C]"
                         />
@@ -1606,7 +1645,7 @@ export default function AdminPanel() {
                     <div>
                       <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5">Campaign details description</label>
                       <textarea
-                        defaultValue={offer.description}
+                        defaultValue={offer?.description || ""}
                         onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })}
                         rows="3"
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#C9A84C]"
