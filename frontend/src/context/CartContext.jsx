@@ -274,11 +274,15 @@ export function CartProvider({ children }) {
       return;
     }
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("orders")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .select("*, profiles(full_name), addresses(*)");
+      
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) throw error;
       setOrders(data || []);

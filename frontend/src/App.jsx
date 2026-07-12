@@ -92,7 +92,13 @@ function ScrollTop() {
 // ─── Main app content — reads auth state to decide what to show ───────────────
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
-  const [page, setPage] = useState("login");          // default to login
+  // URL path synchronization and initial detection
+  const [page, setPage] = useState(() => {
+    if (window.location.pathname === "/admin") {
+      return "admin"; // Let the guard effect handle redirection if not authenticated/admin later
+    }
+    return "login";
+  });
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [siteLoaded, setSiteLoaded] = useState(false); // splash for main site
 
@@ -138,27 +144,58 @@ function AppContent() {
       });
   }, []);
 
-  // When user logs in, switch to home and start the splash timer
+  // Sync state changes to browser URL path
+  useEffect(() => {
+    if (page === "admin") {
+      if (window.location.pathname !== "/admin") {
+        window.history.pushState(null, "", "/admin");
+      }
+    } else if (page !== "login" && page !== "signup") {
+      if (window.location.pathname !== "/") {
+        window.history.pushState(null, "", "/");
+      }
+    }
+  }, [page]);
+
+  // When user logs in or state changes, handle page routing and redirects
   useEffect(() => {
     if (user) {
-      // If user was trying to access a protected page, redirect to that
-      // For now, just go home
-      setPage("home");
+      // If user logs in or is active, check path and role
+      const isPathAdmin = window.location.pathname === "/admin";
+      
+      if (isAdmin) {
+        // Admins default to "/admin"
+        setPage("admin");
+        if (window.location.pathname !== "/admin") {
+          window.history.replaceState(null, "", "/admin");
+        }
+      } else {
+        // Non-admins must never see admin pages
+        if (isPathAdmin) {
+          window.history.replaceState(null, "", "/");
+        }
+        setPage("home");
+      }
+
       setSiteLoaded(false);
       const t = setTimeout(() => setSiteLoaded(true), 1200);
       return () => clearTimeout(t);
     } else if (!loading) {
       // logged out → always go back to login
       setPage("login");
+      if (window.location.pathname === "/admin") {
+        window.history.replaceState(null, "", "/");
+      }
     }
-  }, [user, loading]);
+  }, [user, loading, isAdmin]);
 
-  // Protect admin route
+  // Protect admin route from unauthorized access
   useEffect(() => {
-    if (page === "admin" && !isAdmin) {
+    if (page === "admin" && user && !isAdmin) {
       setPage("home");
+      window.history.replaceState(null, "", "/");
     }
-  }, [page, isAdmin]);
+  }, [page, user, isAdmin]);
 
   const handleProductClick = (productId) => {
     setSelectedProductId(productId);
@@ -185,7 +222,9 @@ function AppContent() {
   return (
     <div className="bg-[#0A0A0F] text-white font-sans">
       <PageLoader done={siteLoaded} />
-      <Navbar currentPage={page} setPage={setPage} onProductClick={handleProductClick} />
+      {page !== "admin" && (
+        <Navbar currentPage={page} setPage={setPage} onProductClick={handleProductClick} />
+      )}
       <main>
         {page === "home" && (
           <>
@@ -231,7 +270,7 @@ function AppContent() {
           </ProtectedRoute>
         )}
       </main>
-      <Footer setPage={setPage} />
+      {page !== "admin" && <Footer setPage={setPage} />}
       <ScrollTop />
     </div>
   );
