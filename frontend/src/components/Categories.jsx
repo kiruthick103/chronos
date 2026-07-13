@@ -1,6 +1,7 @@
 const categories = [
   {
     title: "Dress Watches",
+    pageId: "dress",
     count: 124,
     accent: "#C9A84C",
     gradient: "from-[#C9A84C]/12 via-[#C9A84C]/6 to-transparent",
@@ -29,6 +30,7 @@ const categories = [
   },
   {
     title: "Dive Watches",
+    pageId: "dive",
     count: 87,
     accent: "#38BDF8",
     gradient: "from-[#38BDF8]/12 via-[#38BDF8]/6 to-transparent",
@@ -57,6 +59,7 @@ const categories = [
   },
   {
     title: "Chronographs",
+    pageId: "chrono",
     count: 203,
     accent: "#F87171",
     gradient: "from-[#F87171]/12 via-[#F87171]/6 to-transparent",
@@ -88,6 +91,7 @@ const categories = [
   },
   {
     title: "Smart Luxury",
+    pageId: "smart",
     count: 56,
     accent: "#C084FC",
     gradient: "from-[#C084FC]/12 via-[#C084FC]/6 to-transparent",
@@ -117,7 +121,17 @@ const categories = [
   },
 ];
 
-export default function Categories() {
+export default function Categories({ setPage, setCollectionCategory }) {
+  const handleCategoryClick = (pageId) => {
+    setCollectionCategory(pageId);
+    setPage("collection");
+  };
+
+  const handleAllCategories = () => {
+    setCollectionCategory(null);
+    setPage("collection");
+  };
+
   return (
     <section className="py-20 sm:py-28 px-5 sm:px-8" aria-labelledby="categories-heading">
       <div className="max-w-7xl mx-auto">
@@ -132,19 +146,22 @@ export default function Categories() {
               </span>
             </h2>
           </div>
-          <a href="#" className="animate-fade-up hidden sm:flex items-center gap-2 text-white/35 hover:text-[#C9A84C] text-[0.72rem] tracking-[0.2em] uppercase font-medium transition-colors group w-fit">
+          <button
+            onClick={handleAllCategories}
+            className="animate-fade-up hidden sm:flex items-center gap-2 text-white/35 hover:text-[#C9A84C] text-[0.72rem] tracking-[0.2em] uppercase font-medium transition-colors group w-fit"
+          >
             All Categories
             <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {categories.map((cat, i) => (
-            <a
+            <button
               key={cat.title}
-              href="#"
-              className={`group relative bg-gradient-to-br ${cat.gradient} border border-white/8 ${cat.borderHover} rounded-2xl p-6 sm:p-7 card-hover overflow-hidden flex flex-col gap-5 animate-fade-up`}
-              style={{ animationDelay: `${i * 0.08}s`, textDecoration: "none" }}
+              onClick={() => handleCategoryClick(cat.pageId)}
+              className={`group relative bg-gradient-to-br ${cat.gradient} border border-white/8 ${cat.borderHover} rounded-2xl p-6 sm:p-7 card-hover overflow-hidden flex flex-col gap-5 animate-fade-up text-left w-full`}
+              style={{ animationDelay: `${i * 0.08}s` }}
               aria-label={`Browse ${cat.title}`}
             >
               {/* Corner glow */}
@@ -190,7 +207,7 @@ export default function Categories() {
                   </svg>
                 </div>
               </div>
-            </a>
+            </button>
           ))}
         </div>
       </div>

@@ -9,8 +9,8 @@ const collectionCategories = [
   { id: "smart", name: "Smart Luxury", desc: "Connected intelligence, refined form", icon: "📱" },
 ];
 
-export default function Collection({ onProductClick }) {
-  const [selected, setSelected] = useState(null);
+export default function Collection({ onProductClick, initialCategory = null }) {
+  const [selected, setSelected] = useState(initialCategory);
   const [sort, setSort] = useState("relevant");
   const { addToCart, products } = useCart();
   const [addedToCart, setAddedToCart] = useState(null);

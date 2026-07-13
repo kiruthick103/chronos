@@ -93,6 +93,7 @@ function ScrollTop() {
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
   // URL path synchronization and initial detection
+  const [collectionCategory, setCollectionCategory] = useState(null);
   const [page, setPage] = useState(() => {
     if (window.location.pathname === "/admin") {
       return "admin"; // Let the guard effect handle redirection if not authenticated/admin later
@@ -230,14 +231,14 @@ function AppContent() {
           <>
             <Hero setPage={setPage} />
             <Brands />
-            <Categories />
+            <Categories setPage={setPage} setCollectionCategory={setCollectionCategory} />
             <Products onProductClick={handleProductClick} />
             <OfferBanner />
             <Reviews />
           </>
         )}
         {page === "finder"     && <WatchFinder setPage={setPage} onProductClick={handleProductClick} />}
-        {page === "collection" && <Collection onProductClick={handleProductClick} />}
+        {page === "collection" && <Collection onProductClick={handleProductClick} initialCategory={collectionCategory} />}
         {page === "brands"     && <BrandsPage />}
         {page === "men"        && <MenCollection onProductClick={handleProductClick} />}
         {page === "women"      && <WomenCollection onProductClick={handleProductClick} />}
