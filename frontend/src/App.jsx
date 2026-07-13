@@ -23,6 +23,7 @@ import Login from "./components/Login";
 import Signup from "./components/Signup";
 import Profile from "./components/Profile";
 import AuthLoader from "./components/AuthLoader";
+import SoftAurora from "./components/SoftAurora";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // ─── Splash loader (shown on first site entry) ────────────────────────────────
@@ -210,69 +211,109 @@ function AppContent() {
   // 2️⃣ Not logged in — show only Login or Signup
   if (!user) {
     return (
-      <div className="bg-[#0A0A0F] text-white font-sans">
-        {page === "signup"
-          ? <Signup setPage={setPage} />
-          : <Login setPage={setPage} />
-        }
+      <div className="bg-[#0A0A0F] text-white font-sans min-h-screen relative overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none z-0 opacity-30">
+          <SoftAurora
+            speed={0.6}
+            scale={1.5}
+            brightness={1}
+            color1="#f7f7f7"
+            color2="#e100ff"
+            noiseFrequency={2.5}
+            noiseAmplitude={1}
+            bandHeight={0.5}
+            bandSpread={1}
+            octaveDecay={0.1}
+            layerOffset={0}
+            colorSpeed={1}
+            enableMouseInteraction
+            mouseInfluence={0.25}
+          />
+        </div>
+        <div className="relative z-10">
+          {page === "signup"
+            ? <Signup setPage={setPage} />
+            : <Login setPage={setPage} />
+          }
+        </div>
       </div>
     );
   }
 
   // 3️⃣ Logged in — show full website
   return (
-    <div className="bg-[#0A0A0F] text-white font-sans">
-      <PageLoader done={siteLoaded} />
-      {page !== "admin" && (
-        <Navbar currentPage={page} setPage={setPage} onProductClick={handleProductClick} />
-      )}
-      <main>
-        {page === "home" && (
-          <>
-            <Hero setPage={setPage} />
-            <Brands />
-            <Categories setPage={setPage} setCollectionCategory={setCollectionCategory} />
-            <Products onProductClick={handleProductClick} />
-            <OfferBanner />
-            <Reviews />
-          </>
+    <div className="bg-[#0A0A0F] text-white font-sans min-h-screen relative overflow-x-hidden">
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-35">
+        <SoftAurora
+          speed={0.6}
+          scale={1.5}
+          brightness={1}
+          color1="#f7f7f7"
+          color2="#e100ff"
+          noiseFrequency={2.5}
+          noiseAmplitude={1}
+          bandHeight={0.5}
+          bandSpread={1}
+          octaveDecay={0.1}
+          layerOffset={0}
+          colorSpeed={1}
+          enableMouseInteraction
+          mouseInfluence={0.25}
+        />
+      </div>
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <PageLoader done={siteLoaded} />
+        {page !== "admin" && (
+          <Navbar currentPage={page} setPage={setPage} onProductClick={handleProductClick} />
         )}
-        {page === "finder"     && <WatchFinder setPage={setPage} onProductClick={handleProductClick} />}
-        {page === "collection" && <Collection onProductClick={handleProductClick} initialCategory={collectionCategory} />}
-        {page === "brands"     && <BrandsPage />}
-        {page === "men"        && <MenCollection onProductClick={handleProductClick} />}
-        {page === "women"      && <WomenCollection onProductClick={handleProductClick} />}
-        {page === "about"      && <About />}
-        {page === "cart"       && (
-          <ProtectedRoute>
-            <Cart />
-          </ProtectedRoute>
-        )}
-        {page === "wishlist"   && (
-          <ProtectedRoute>
-            <Wishlist onProductClick={handleProductClick} />
-          </ProtectedRoute>
-        )}
-        {page === "admin"      && (
-          <ProtectedRoute adminOnly={true}>
-            <AdminPanel />
-          </ProtectedRoute>
-        )}
-        {page === "detail"     && (
-          <ProductDetail
-            productId={selectedProductId}
-            setPage={setPage}
-            onProductClick={handleProductClick}
-          />
-        )}
-        {page === "profile" && (
-          <ProtectedRoute>
-            <Profile setPage={setPage} />
-          </ProtectedRoute>
-        )}
-      </main>
-      {page !== "admin" && <Footer setPage={setPage} />}
-      <ScrollTop />
+        <main className="flex-grow">
+          {page === "home" && (
+            <>
+              <Hero setPage={setPage} />
+              <Brands />
+              <Categories setPage={setPage} setCollectionCategory={setCollectionCategory} />
+              <Products onProductClick={handleProductClick} />
+              <OfferBanner />
+              <Reviews />
+            </>
+          )}
+          {page === "finder"     && <WatchFinder setPage={setPage} onProductClick={handleProductClick} />}
+          {page === "collection" && <Collection onProductClick={handleProductClick} initialCategory={collectionCategory} />}
+          {page === "brands"     && <BrandsPage />}
+          {page === "men"        && <MenCollection onProductClick={handleProductClick} />}
+          {page === "women"      && <WomenCollection onProductClick={handleProductClick} />}
+          {page === "about"      && <About />}
+          {page === "cart"       && (
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          )}
+          {page === "wishlist"   && (
+            <ProtectedRoute>
+              <Wishlist onProductClick={handleProductClick} />
+            </ProtectedRoute>
+          )}
+          {page === "admin"      && (
+            <ProtectedRoute adminOnly={true}>
+              <AdminPanel />
+            </ProtectedRoute>
+          )}
+          {page === "detail"     && (
+            <ProductDetail
+              productId={selectedProductId}
+              setPage={setPage}
+              onProductClick={handleProductClick}
+            />
+          )}
+          {page === "profile" && (
+            <ProtectedRoute>
+              <Profile setPage={setPage} />
+            </ProtectedRoute>
+          )}
+        </main>
+        {page !== "admin" && <Footer setPage={setPage} />}
+        <ScrollTop />
+      </div>
     </div>
   );
 }
