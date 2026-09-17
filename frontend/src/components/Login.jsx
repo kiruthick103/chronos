@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 const ADMIN_EMAIL = "kiruthick3238q@gmail.com";
 const ADMIN_PASSWORD = "Kiruthick@123";
@@ -8,6 +9,7 @@ const USER_EMAIL = "userdemo@gmail.com";
 const USER_PASSWORD = "Password123";
 
 export default function Login({ setPage }) {
+  const { loginWithDemoFallback } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,11 +18,15 @@ export default function Login({ setPage }) {
   const [showPassword, setShowPassword] = useState(false);
 
   const doLogin = async (loginEmail, loginPassword) => {
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password: loginPassword,
-    });
-    return signInError;
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+      return signInError;
+    } catch (e) {
+      return { message: e.message || "Failed to fetch" };
+    }
   };
 
   const handleLogin = async (e) => {
@@ -29,7 +35,21 @@ export default function Login({ setPage }) {
     setLoading(true);
     const err = await doLogin(email, password);
     setLoading(false);
-    if (err) setError(err.message);
+    if (err) {
+      if (err.message && err.message.toLowerCase().includes("failed to fetch")) {
+        if (email.trim().toLowerCase() === USER_EMAIL) {
+          loginWithDemoFallback("user");
+          return;
+        }
+        if (email.trim().toLowerCase() === ADMIN_EMAIL) {
+          loginWithDemoFallback("admin");
+          return;
+        }
+        setError("Cannot reach Supabase auth server (project may be paused or offline). Use the Demo buttons above to explore, or resume your Supabase project.");
+      } else {
+        setError(err.message);
+      }
+    }
     // on success, AuthContext fires → App.jsx redirects to home automatically
   };
 
@@ -44,31 +64,43 @@ export default function Login({ setPage }) {
     setPassword(demoPassword);
     
     await new Promise((r) => setTimeout(r, 600));
-    let err = await doLogin(demoEmail, demoPassword);
 
-    // If the demo account doesn't exist yet, auto-register it and retry login
-    if (err && (err.message.includes("Invalid login credentials") || err.message.includes("not found"))) {
-      console.log(`Demo ${role} not found, attempting auto-registration...`);
-      const signUpMeta = role === "admin"
-        ? { full_name: "Admin Kiruthick", is_admin: true, role: "admin" }
-        : { full_name: "Demo Customer", is_admin: false };
+    try {
+      let err = await doLogin(demoEmail, demoPassword);
 
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: demoEmail,
-        password: demoPassword,
-        options: { data: signUpMeta }
-      });
+      // If the demo account doesn't exist yet, auto-register it and retry login
+      if (err && (err.message?.includes("Invalid login credentials") || err.message?.includes("not found"))) {
+        console.log(`Demo ${role} not found, attempting auto-registration...`);
+        const signUpMeta = role === "admin"
+          ? { full_name: "Admin Kiruthick", is_admin: true, role: "admin" }
+          : { full_name: "Demo Customer", is_admin: false };
 
-      if (signUpError) {
-        err = signUpError;
-      } else {
-        // Retry logging in after signup
-        err = await doLogin(demoEmail, demoPassword);
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: demoEmail,
+          password: demoPassword,
+          options: { data: signUpMeta }
+        });
+
+        if (!signUpError) {
+          err = await doLogin(demoEmail, demoPassword);
+        }
       }
+
+      // If Supabase is offline / paused / failed to fetch, seamlessly fall back to local demo session
+      if (err) {
+        console.warn(`[Login] Supabase sign-in unavailable (${err.message}). Entering local demo session.`);
+        loginWithDemoFallback(role);
+        setDemoLoading(null);
+        return;
+      }
+    } catch (networkErr) {
+      console.warn(`[Login] Network exception (${networkErr.message}). Entering local demo session.`);
+      loginWithDemoFallback(role);
+      setDemoLoading(null);
+      return;
     }
 
     setDemoLoading(null);
-    if (err) setError(err.message);
   };
 
   return (

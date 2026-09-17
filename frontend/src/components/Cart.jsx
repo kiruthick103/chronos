@@ -132,11 +132,11 @@ export default function Cart() {
                   {cart.map((item, i) => (
                     <div
                       key={item.id}
-                      className={`flex gap-6 p-6 sm:p-7 border-b border-white/10 last:border-0 hover:bg-white/[0.02] transition-all duration-300 animate-fade-up`}
+                      className={`flex flex-col sm:flex-row gap-4 sm:gap-6 p-5 sm:p-7 border-b border-white/10 last:border-0 hover:bg-white/[0.02] transition-all duration-300 animate-fade-up`}
                       style={{ animationDelay: `${i * 0.05}s` }}
                     >
                       {/* Image */}
-                      <div className="w-28 h-28 flex-shrink-0 rounded-2xl overflow-hidden glass">
+                      <div className="w-full sm:w-28 h-48 sm:h-28 flex-shrink-0 rounded-2xl overflow-hidden glass">
                         <WatchImage
                           src={item.image}
                           alt={item.name}
@@ -153,38 +153,38 @@ export default function Cart() {
                           <p className="text-[#C9A84C] text-base font-bold">${item.price.toLocaleString()}</p>
                         </div>
 
-                        {/* Quantity control */}
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-8 h-8 rounded-lg border border-white/20 text-white/60 hover:text-white hover:border-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all flex items-center justify-center text-sm font-bold"
-                          >
-                            −
-                          </button>
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                            className="w-12 bg-white/5 border border-white/10 text-white text-center text-sm rounded-lg px-2 py-1.5 font-semibold"
-                          />
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-8 h-8 rounded-lg border border-white/20 text-white/60 hover:text-white hover:border-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all flex items-center justify-center text-sm font-bold"
-                          >
-                            +
-                          </button>
+                        {/* Quantity + Remove row */}
+                        <div className="flex items-center justify-between mt-4 gap-3">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="w-8 h-8 rounded-lg border border-white/20 text-white/60 hover:text-white hover:border-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all flex items-center justify-center text-sm font-bold"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                              className="w-12 bg-white/5 border border-white/10 text-white text-center text-sm rounded-lg px-2 py-1.5 font-semibold"
+                            />
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="w-8 h-8 rounded-lg border border-white/20 text-white/60 hover:text-white hover:border-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all flex items-center justify-center text-sm font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-white font-black text-xl">${(item.price * item.quantity).toLocaleString()}</span>
+                            <button
+                              onClick={() => removeFromCart(item.id)}
+                              className="text-white/40 hover:text-[#EF4444] transition-colors text-xs tracking-wider uppercase font-bold hover:scale-110"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Price & remove */}
-                      <div className="flex flex-col justify-between items-end">
-                        <span className="text-white font-black text-xl">${(item.price * item.quantity).toLocaleString()}</span>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-white/40 hover:text-[#EF4444] transition-colors text-xs tracking-wider uppercase font-bold hover:scale-110"
-                        >
-                          Remove
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -370,7 +370,7 @@ export default function Cart() {
               {/* Test Mode Card Instructions */}
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-6">
                 <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">🧪 Razorpay Test Mode — Use These Card Details</p>
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div>
                     <p className="text-white/40">Card Number</p>
                     <p className="text-white font-mono font-bold">4111 1111 1111 1111</p>

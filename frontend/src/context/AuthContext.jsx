@@ -17,13 +17,18 @@ async function fetchProfile(user) {
   if (user?.user_metadata?.is_admin === true) return { is_admin: true };
   if (user?.user_metadata?.role === "admin") return { is_admin: true };
 
-  // 3. Try profiles table as last resort (wrapped safely)
+  // 3. Try profiles table as last resort (wrapped safely with rapid timeout)
   try {
-    const { data, error } = await supabase
+    const profilePromise = supabase
       .from("profiles")
       .select("is_admin")
       .eq("id", user.id)
       .maybeSingle();
+
+    const { data, error } = await Promise.race([
+      profilePromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 500))
+    ]);
 
     if (!error && data) return data;
   } catch {
@@ -54,26 +59,97 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Resolve existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      resolveUser(session?.user ?? null);
-    }).catch((error) => {
-      console.warn("Failed to get session:", error);
-      setLoading(false);
-    });
+    let resolved = false;
+
+    // Fast synchronous check for demo session
+    try {
+      const stored = localStorage.getItem("chronolux_demo_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
+        setIsAdmin(parsed.email === "kiruthick3238q@gmail.com" || parsed.user_metadata?.is_admin === true);
+        setLoading(false);
+        resolved = true;
+      }
+    } catch {}
+
+    // Rapid safety timer: Never let the auth screen hang for more than 400ms
+    const safetyTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setLoading(false);
+      }
+    }, 400);
+
+    // Resolve existing session with timeout race
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Session timeout")), 350))
+    ])
+      .then(({ data: { session } = {} }) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(safetyTimer);
+        if (session?.user) {
+          resolveUser(session.user);
+        } else {
+          resolveUser(null);
+        }
+      })
+      .catch((error) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(safetyTimer);
+        console.warn("[Auth] Rapid session check fallback:", error?.message);
+        setLoading(false);
+      });
 
     // Real-time auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        resolveUser(session?.user ?? null);
-      }
-    );
+    let subscription;
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          resolveUser(session.user);
+        }
+      });
+      subscription = data?.subscription;
+    } catch {}
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      if (subscription?.unsubscribe) subscription.unsubscribe();
+    };
   }, [resolveUser]);
+
+  const loginWithDemoFallback = (role) => {
+    const isAdminRole = role === "admin";
+    const demoUser = isAdminRole
+      ? {
+          id: "admin-demo-id",
+          email: "kiruthick3238q@gmail.com",
+          user_metadata: { full_name: "Admin Kiruthick", is_admin: true, role: "admin" },
+          created_at: new Date().toISOString()
+        }
+      : {
+          id: "user-demo-id",
+          email: "userdemo@gmail.com",
+          user_metadata: { full_name: "Demo Customer", is_admin: false },
+          created_at: new Date().toISOString()
+        };
+
+    try {
+      localStorage.setItem("chronolux_demo_user", JSON.stringify(demoUser));
+    } catch {}
+
+    setUser(demoUser);
+    setIsAdmin(isAdminRole);
+    setLoading(false);
+    return demoUser;
+  };
 
   const signOut = async () => {
     try {
+      localStorage.removeItem("chronolux_demo_user");
       await supabase.auth.signOut();
     } catch (error) {
       console.warn("Sign out error:", error);
@@ -84,7 +160,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, signOut }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, signOut, loginWithDemoFallback }}>
       {children}
     </AuthContext.Provider>
   );

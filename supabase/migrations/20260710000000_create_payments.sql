@@ -38,11 +38,17 @@ CREATE POLICY "Admins can view all payments"
     )
   );
 
--- Enable Realtime replication for the payments table
--- We check if publication exists, drop and recreate it to include payments
+-- Enable Realtime replication for the payments table safely
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.payments;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_rel pr 
+      JOIN pg_class c ON pr.prrelid = c.oid 
+      WHERE pr.prpubid = (SELECT oid FROM pg_publication WHERE pubname = 'supabase_realtime')
+      AND c.relname = 'payments'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.payments;
+    END IF;
   END IF;
 END $$;

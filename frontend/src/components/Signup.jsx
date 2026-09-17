@@ -45,7 +45,11 @@ export default function Signup({ setPage }) {
     setLoading(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      if (signUpError.message && signUpError.message.toLowerCase().includes("failed to fetch")) {
+        setError("Cannot connect to Supabase database. The project may be paused or offline. Please check your Supabase dashboard.");
+      } else {
+        setError(signUpError.message);
+      }
     } else {
       setSuccess("Account created! Redirecting you to the store…");
       setTimeout(() => {

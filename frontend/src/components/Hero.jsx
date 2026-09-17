@@ -198,7 +198,7 @@ export default function Hero({ setPage }) {
           </div>
 
           <div className="animate-fade-up-delay-1 space-y-3">
-            <h1 className="font-display text-[3.5rem] sm:text-[4.5rem] lg:text-[5.5rem] font-bold leading-[0.88] tracking-tight">
+            <h1 className="font-display text-[2.75rem] sm:text-[4.5rem] lg:text-[5.5rem] font-bold leading-[0.88] tracking-tight">
               <span className="block text-white">Time Is</span>
               <span className="block text-gradient animate-pulse-slow">Your Art</span>
             </h1>
@@ -255,19 +255,19 @@ export default function Hero({ setPage }) {
             <HeroWatch />
 
             {/* Caliber tag with glass effect */}
-            <div className="absolute top-8 -right-2 sm:-right-8 animate-fade-up-delay-3 glass rounded-2xl px-4 py-3 shadow-lg-premium">
+            <div className="absolute top-8 -right-1 sm:-right-8 animate-fade-up-delay-3 glass rounded-2xl px-3 sm:px-4 py-3 shadow-lg-premium max-w-[140px] sm:max-w-none">
               <div className="text-[0.62rem] text-white/35 tracking-[0.15em] uppercase">Movement</div>
-              <div className="text-sm font-bold text-[#C9A84C] mt-0.5">Cal. ETA 2824-2</div>
-              <div className="text-[0.6rem] text-white/25 tracking-wider mt-0.5">25 Jewels · 28,800 vph</div>
+              <div className="text-xs sm:text-sm font-bold text-[#C9A84C] mt-0.5">Cal. ETA 2824-2</div>
+              <div className="text-[0.6rem] text-white/25 tracking-wider mt-0.5 hidden sm:block">25 Jewels · 28,800 vph</div>
             </div>
 
             {/* Water resistant tag */}
-            <div className="absolute bottom-16 -left-2 sm:-left-8 animate-fade-up-delay-4 glass border-green-500/20 rounded-2xl px-4 py-3 shadow-lg-premium">
+            <div className="absolute bottom-16 -left-1 sm:-left-8 animate-fade-up-delay-4 glass border-green-500/20 rounded-2xl px-3 sm:px-4 py-3 shadow-lg-premium max-w-[130px] sm:max-w-none">
               <div className="flex items-center gap-1.5 mb-0.5">
                 <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"/>
                 <span className="text-[0.62rem] text-white/40 tracking-wider uppercase">Water Resistant</span>
               </div>
-              <div className="text-sm font-bold text-white">100m / 330ft</div>
+              <div className="text-xs sm:text-sm font-bold text-white">100m / 330ft</div>
             </div>
 
             {/* Live tick indicator */}

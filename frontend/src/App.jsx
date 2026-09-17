@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
@@ -9,22 +9,24 @@ import Products from "./components/Products";
 import OfferBanner from "./components/OfferBanner";
 import Reviews from "./components/Reviews";
 import Footer from "./components/Footer";
-import WatchFinder from "./components/WatchFinder";
-import Collection from "./components/Collection";
-import BrandsPage from "./components/BrandsPage";
-import MenCollection from "./components/MenCollection";
-import WomenCollection from "./components/WomenCollection";
-import About from "./components/About";
-import Cart from "./components/Cart";
-import Wishlist from "./components/Wishlist";
-import AdminPanel from "./components/AdminPanel";
-import ProductDetail from "./components/ProductDetail";
-import Login from "./components/Login";
-import Signup from "./components/Signup";
-import Profile from "./components/Profile";
 import AuthLoader from "./components/AuthLoader";
 import SoftAurora from "./components/SoftAurora";
 import ProtectedRoute from "./components/ProtectedRoute";
+
+// Dynamic dynamic page imports for bundle optimization
+const WatchFinder = lazy(() => import("./components/WatchFinder"));
+const Collection = lazy(() => import("./components/Collection"));
+const BrandsPage = lazy(() => import("./components/BrandsPage"));
+const MenCollection = lazy(() => import("./components/MenCollection"));
+const WomenCollection = lazy(() => import("./components/WomenCollection"));
+const About = lazy(() => import("./components/About"));
+const Cart = lazy(() => import("./components/Cart"));
+const Wishlist = lazy(() => import("./components/Wishlist"));
+const AdminPanel = lazy(() => import("./components/AdminPanel"));
+const ProductDetail = lazy(() => import("./components/ProductDetail"));
+const Login = lazy(() => import("./components/Login"));
+const Signup = lazy(() => import("./components/Signup"));
+const Profile = lazy(() => import("./components/Profile"));
 
 // ─── Splash loader (shown on first site entry) ────────────────────────────────
 function PageLoader({ done }) {
@@ -102,7 +104,7 @@ function AppContent() {
     return "login";
   });
   const [selectedProductId, setSelectedProductId] = useState(null);
-  const [siteLoaded, setSiteLoaded] = useState(false); // splash for main site
+  const [siteLoaded, setSiteLoaded] = useState(true); // instant ready for main site
 
   // Verify backend connectivity and log results to the console
   useEffect(() => {
@@ -179,9 +181,7 @@ function AppContent() {
         setPage("home");
       }
 
-      setSiteLoaded(false);
-      const t = setTimeout(() => setSiteLoaded(true), 1200);
-      return () => clearTimeout(t);
+      setSiteLoaded(true);
     } else if (!loading) {
       // logged out → always go back to login
       setPage("login");
@@ -231,10 +231,12 @@ function AppContent() {
           />
         </div>
         <div className="relative z-10">
-          {page === "signup"
-            ? <Signup setPage={setPage} />
-            : <Login setPage={setPage} />
-          }
+          <Suspense fallback={<AuthLoader />}>
+            {page === "signup"
+              ? <Signup setPage={setPage} />
+              : <Login setPage={setPage} />
+            }
+          </Suspense>
         </div>
       </div>
     );
@@ -267,49 +269,51 @@ function AppContent() {
           <Navbar currentPage={page} setPage={setPage} onProductClick={handleProductClick} />
         )}
         <main className="flex-grow">
-          {page === "home" && (
-            <>
-              <Hero setPage={setPage} />
-              <Brands />
-              <Categories setPage={setPage} setCollectionCategory={setCollectionCategory} />
-              <Products onProductClick={handleProductClick} />
-              <OfferBanner />
-              <Reviews />
-            </>
-          )}
-          {page === "finder"     && <WatchFinder setPage={setPage} onProductClick={handleProductClick} />}
-          {page === "collection" && <Collection onProductClick={handleProductClick} initialCategory={collectionCategory} />}
-          {page === "brands"     && <BrandsPage />}
-          {page === "men"        && <MenCollection onProductClick={handleProductClick} />}
-          {page === "women"      && <WomenCollection onProductClick={handleProductClick} />}
-          {page === "about"      && <About />}
-          {page === "cart"       && (
-            <ProtectedRoute>
-              <Cart />
-            </ProtectedRoute>
-          )}
-          {page === "wishlist"   && (
-            <ProtectedRoute>
-              <Wishlist onProductClick={handleProductClick} />
-            </ProtectedRoute>
-          )}
-          {page === "admin"      && (
-            <ProtectedRoute adminOnly={true}>
-              <AdminPanel />
-            </ProtectedRoute>
-          )}
-          {page === "detail"     && (
-            <ProductDetail
-              productId={selectedProductId}
-              setPage={setPage}
-              onProductClick={handleProductClick}
-            />
-          )}
-          {page === "profile" && (
-            <ProtectedRoute>
-              <Profile setPage={setPage} />
-            </ProtectedRoute>
-          )}
+          <Suspense fallback={<AuthLoader />}>
+            {page === "home" && (
+              <>
+                <Hero setPage={setPage} />
+                <Brands />
+                <Categories setPage={setPage} setCollectionCategory={setCollectionCategory} />
+                <Products onProductClick={handleProductClick} />
+                <OfferBanner />
+                <Reviews />
+              </>
+            )}
+            {page === "finder"     && <WatchFinder setPage={setPage} onProductClick={handleProductClick} />}
+            {page === "collection" && <Collection onProductClick={handleProductClick} initialCategory={collectionCategory} />}
+            {page === "brands"     && <BrandsPage />}
+            {page === "men"        && <MenCollection onProductClick={handleProductClick} />}
+            {page === "women"      && <WomenCollection onProductClick={handleProductClick} />}
+            {page === "about"      && <About />}
+            {page === "cart"       && (
+              <ProtectedRoute>
+                <Cart />
+              </ProtectedRoute>
+            )}
+            {page === "wishlist"   && (
+              <ProtectedRoute>
+                <Wishlist onProductClick={handleProductClick} />
+              </ProtectedRoute>
+            )}
+            {page === "admin"      && (
+              <ProtectedRoute adminOnly={true}>
+                <AdminPanel />
+              </ProtectedRoute>
+            )}
+            {page === "detail"     && (
+              <ProductDetail
+                productId={selectedProductId}
+                setPage={setPage}
+                onProductClick={handleProductClick}
+              />
+            )}
+            {page === "profile" && (
+              <ProtectedRoute>
+                <Profile setPage={setPage} />
+              </ProtectedRoute>
+            )}
+          </Suspense>
         </main>
         {page !== "admin" && <Footer setPage={setPage} />}
         <ScrollTop />

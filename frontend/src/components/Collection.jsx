@@ -34,16 +34,16 @@ export default function Collection({ onProductClick, initialCategory = null }) {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-12 animate-fade-up">
-          <h1 className="font-display text-5xl sm:text-6xl font-bold text-white mb-4">
+          <h1 className="font-display text-4xl sm:text-6xl font-bold text-white mb-4">
             The Complete <span className="bg-gradient-to-r from-[#C9A84C] to-[#F0D080] bg-clip-text text-transparent">Collection</span>
           </h1>
-          <p className="text-white/50 text-lg max-w-2xl">
+          <p className="text-white/50 text-base sm:text-lg max-w-2xl">
             Curated selections from the world's most prestigious watchmakers. Every piece authenticated and guaranteed.
           </p>
         </div>
 
         {/* Categories grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-5 mb-16">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 mb-16">
           <button
             onClick={() => setSelected(null)}
             className={`relative p-6 rounded-2xl border-2 transition-all duration-300 group text-left ${

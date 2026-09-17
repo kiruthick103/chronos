@@ -142,7 +142,7 @@ function Quiz({ onComplete }) {
   );
 }
 
-function Results({ answers, setPage }) {
+function Results({ answers, setPage, onProductClick }) {
   const [wishlist, setWishlist] = useState(new Set());
   const [filter, setFilter] = useState("all");
   const [compareMode, setCompareMode] = useState(false);
@@ -274,7 +274,7 @@ export default function WatchFinder({ setPage, onProductClick }) {
           setStage("results");
         }} />
       ) : (
-        <Results answers={answers} setPage={setPage} />
+        <Results answers={answers} setPage={setPage} onProductClick={onProductClick} />
       )}
     </>
   );

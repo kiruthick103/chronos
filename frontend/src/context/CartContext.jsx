@@ -223,7 +223,10 @@ export function CartProvider({ children }) {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase.from("products").select("*").order("name");
+      const { data, error } = await Promise.race([
+        supabase.from("products").select("*").order("name"),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Supabase product fetch timeout")), 1200))
+      ]);
       if (error) throw error;
 
       if (data && data.length > 0) {
