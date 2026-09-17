@@ -119,33 +119,48 @@ export default function Products({ onProductClick }) {
                   style={{ animationDelay: `${i * 0.06}s` }}
                   onClick={() => onProductClick && onProductClick(product.id)}
                 >
-                  {/* Badge */}
-                  {product.originalPrice && (
-                    <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-[#F87171] text-white rounded-full text-[0.62rem] font-black tracking-widest uppercase">
-                      Sale
-                    </div>
-                  )}
+                  {/* Badges Container */}
+                  <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 items-start">
+                    {product.certified && (
+                      <span className="bg-[#090A0E]/90 border border-[#D4AF37]/50 text-[#D4AF37] px-2.5 py-0.5 rounded-full text-[0.6rem] font-bold tracking-wider uppercase flex items-center gap-1 shadow-md">
+                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span>Certified</span>
+                      </span>
+                    )}
+                    {product.condition && (
+                      <span className={`px-2 py-0.5 rounded-full text-[0.6rem] font-bold tracking-wider uppercase ${
+                        product.condition === "New"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                          : product.condition === "Vintage"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "bg-white/10 text-white/80 border border-white/20"
+                      }`}>
+                        {product.condition}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Wishlist */}
                   <button
                     onClick={(e) => handleToggleWishlist(product, e)}
                     aria-label={inWish ? "Remove from wishlist" : "Add to wishlist"}
-                    className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm border border-white/8 hover:border-white/20 transition-all duration-200 group/heart"
+                    className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm border border-white/10 hover:border-[#D4AF37] transition-all duration-200"
                   >
-                    <svg className={`w-4 h-4 transition-all duration-200 ${inWish ? "scale-110" : "group-hover/heart:scale-110"}`}
-                      fill={inWish ? "#F87171" : "none"} viewBox="0 0 24 24"
-                      stroke={inWish ? "#F87171" : "rgba(255,255,255,0.5)"} strokeWidth="1.8">
+                    <svg className={`w-4 h-4 transition-all duration-200 ${inWish ? "scale-110" : ""}`}
+                      fill={inWish ? "#D4AF37" : "none"} viewBox="0 0 24 24"
+                      stroke={inWish ? "#D4AF37" : "rgba(255,255,255,0.6)"} strokeWidth="1.8">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                     </svg>
                   </button>
 
                   {/* Watch image */}
-                  <div className="relative h-52 flex items-center justify-center overflow-hidden"
-                    style={{ background: `linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%)` }}>
+                  <div className="relative h-60 flex items-center justify-center overflow-hidden bg-[#050608]">
                     <WatchImage
                       src={product.image}
                       alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                       fallbackSize="text-6xl"
                     />
                   </div>
@@ -153,42 +168,41 @@ export default function Products({ onProductClick }) {
                   {/* Info */}
                   <div className="p-5">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-[0.6rem] text-white/25 tracking-[0.2em] uppercase font-medium">{product.brand}</p>
-                      <span className="text-[0.6rem] text-white/20">#{String(product.id).padStart(4,'0')}</span>
+                      <p className="text-[0.65rem] text-[#D4AF37] tracking-[0.2em] uppercase font-bold">{product.brand}</p>
+                      <span className="text-[0.62rem] text-white/40 font-mono">{product.refNumber || `#${String(product.id).slice(-6)}`}</span>
                     </div>
-                    <h3 className="text-white font-bold text-sm leading-snug mb-2.5 group-hover:text-[#F0D080] transition-colors duration-300">{product.name}</h3>
+                    <h3 className="font-display text-white font-bold text-base leading-snug mb-2 group-hover:text-[#E5C378] transition-colors duration-300 line-clamp-1">{product.name}</h3>
 
                     <div className="flex items-center gap-2 mb-4">
                       <StarRating rating={product.rating}/>
-                      <span className="text-white/25 text-[0.62rem]">{product.rating.toFixed(1)}</span>
-                      <span className="text-white/15 text-[0.62rem]">({product.reviews})</span>
+                      <span className="text-white/40 text-[0.65rem] font-semibold">{product.rating.toFixed(1)}</span>
+                      <span className="text-white/20 text-[0.65rem]">({product.reviews})</span>
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
                       <div className="flex flex-col">
-                        <span className="text-white font-black text-lg leading-none">{fmt(product.price)}</span>
+                        <span className="text-white font-bold font-display text-lg leading-none">{fmt(product.price)}</span>
                         {product.originalPrice && (
-                          <span className="text-white/25 text-xs line-through mt-0.5">{fmt(product.originalPrice)}</span>
+                          <span className="text-white/30 text-xs line-through mt-0.5">{fmt(product.originalPrice)}</span>
                         )}
                       </div>
 
                       <button
                         onClick={(e) => handleAddToCart(product, e)}
                         aria-label={inCart ? "Added to cart" : "Add to cart"}
-                        className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
                           inCart
-                            ? "bg-green-500/20 border border-green-500/40 scale-95"
-                            : "hover:scale-110 hover:shadow-lg"
+                            ? "bg-emerald-500/20 border border-emerald-500/40"
+                            : "bg-[#D4AF37]/15 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-[#090A0E] border border-[#D4AF37]/30"
                         }`}
-                        style={!inCart ? { background:`#C9A84C18`, border:`1px solid #C9A84C35` } : {}}
                       >
                         {inCart ? (
-                          <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                             <path d="M5 13l4 4L19 7"/>
                           </svg>
                         ) : (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#C9A84C" strokeWidth="1.8">
-                            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+                          <svg className="w-4 h-4 fill-none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 4v16m8-8H4" />
                           </svg>
                         )}
                       </button>

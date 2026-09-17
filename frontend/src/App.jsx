@@ -8,18 +8,21 @@ import Categories from "./components/Categories";
 import Products from "./components/Products";
 import OfferBanner from "./components/OfferBanner";
 import Reviews from "./components/Reviews";
+import NewsletterSignup from "./components/NewsletterSignup";
 import Footer from "./components/Footer";
 import AuthLoader from "./components/AuthLoader";
 import SoftAurora from "./components/SoftAurora";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Dynamic dynamic page imports for bundle optimization
+// Dynamic page imports for bundle optimization
 const WatchFinder = lazy(() => import("./components/WatchFinder"));
 const Collection = lazy(() => import("./components/Collection"));
 const BrandsPage = lazy(() => import("./components/BrandsPage"));
 const MenCollection = lazy(() => import("./components/MenCollection"));
 const WomenCollection = lazy(() => import("./components/WomenCollection"));
 const About = lazy(() => import("./components/About"));
+const SellWatch = lazy(() => import("./components/SellWatch"));
+const Contact = lazy(() => import("./components/Contact"));
 const Cart = lazy(() => import("./components/Cart"));
 const Wishlist = lazy(() => import("./components/Wishlist"));
 const AdminPanel = lazy(() => import("./components/AdminPanel"));
@@ -32,12 +35,12 @@ const Profile = lazy(() => import("./components/Profile"));
 function PageLoader({ done }) {
   return (
     <div
-      className={`fixed inset-0 z-[999] bg-[#0A0A0F] flex flex-col items-center justify-center transition-opacity duration-700 ${
+      className={`fixed inset-0 z-[999] bg-[#07070A] flex flex-col items-center justify-center transition-opacity duration-700 ${
         done ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >
-      <div className="relative mb-8">
-        <div className="w-16 h-16 rounded-full border border-[#C9A84C]/20 animate-pulse-ring" />
+      <div className="relative mb-6">
+        <div className="w-16 h-16 rounded-full border border-[#D4AF37]/20 animate-pulse-ring" />
         <svg
           viewBox="0 0 64 64"
           className="absolute inset-0 w-16 h-16 animate-spin"
@@ -50,20 +53,20 @@ function PageLoader({ done }) {
           />
           <defs>
             <linearGradient id="loaderGold" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#C9A84C" />
-              <stop offset="100%" stopColor="#F0D080" />
+              <stop offset="0%" stopColor="#C5A059" />
+              <stop offset="100%" stopColor="#F5E2B3" />
             </linearGradient>
           </defs>
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="8" stroke="#C9A84C" strokeWidth="1.5" />
-            <path d="M12 7v5l3 3" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="8" stroke="#D4AF37" strokeWidth="1.5" />
+            <path d="M12 7v5l3 3" stroke="#D4AF37" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
       </div>
-      <span className="text-xs text-[#C9A84C]/60 tracking-[0.4em] uppercase font-medium">
-        Chronolux
+      <span className="font-display text-xs text-[#D4AF37] tracking-[0.4em] uppercase font-bold">
+        Chronolux Geneva
       </span>
     </div>
   );
@@ -73,82 +76,40 @@ function PageLoader({ done }) {
 function ScrollTop() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    const fn = () => setVisible(window.scrollY > 600);
+    const fn = () => setVisible(window.scrollY > 500);
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
+
   return (
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="Scroll to top"
-      className={`fixed bottom-8 right-6 z-40 w-11 h-11 rounded-full btn-gold flex items-center justify-center shadow-xl transition-all duration-300 ${
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+      className={`fixed bottom-8 right-6 z-40 w-11 h-11 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#C5A059] flex items-center justify-center shadow-2xl transition-all duration-300 ${
+        visible ? "opacity-100 translate-y-0 hover:scale-110" : "opacity-0 translate-y-4 pointer-events-none"
       }`}
     >
-      <svg className="w-5 h-5 text-[#0A0A0F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+      <svg className="w-5 h-5 text-[#090A0E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
         <path d="M18 15l-6-6-6 6" />
       </svg>
     </button>
   );
 }
 
-// ─── Main app content — reads auth state to decide what to show ───────────────
+// ─── Main app content ────────────────────────────────────────────────────────
 function AppContent() {
   const { user, loading, isAdmin } = useAuth();
-  // URL path synchronization and initial detection
-  const [collectionCategory, setCollectionCategory] = useState(null);
+  const [collectionFilter, setCollectionFilter] = useState(null);
   const [page, setPage] = useState(() => {
     if (window.location.pathname === "/admin") {
-      return "admin"; // Let the guard effect handle redirection if not authenticated/admin later
+      return "admin";
     }
-    return "login";
+    return "home";
   });
   const [selectedProductId, setSelectedProductId] = useState(null);
-  const [siteLoaded, setSiteLoaded] = useState(true); // instant ready for main site
+  const [siteLoaded, setSiteLoaded] = useState(true);
 
-  // Verify backend connectivity and log results to the console
-  useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL;
-    
-    if (!apiUrl) {
-      console.warn("⚠️ VITE_API_URL environment variable is not defined.");
-      console.error(
-        "❌ Backend Connection Failed\n" +
-        "Reason: Missing environment variable VITE_API_URL.\n" +
-        "Fix: Please create/verify the .env file in the React project root with VITE_API_URL " +
-        "pointing to your backend (locally) or set it in the Vercel dashboard (production)."
-      );
-      return;
-    }
-
-    fetch(`${apiUrl}/api/test`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! Status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        console.log("✅ Backend Connected Successfully");
-        console.log("Backend Response:", data);
-      })
-      .catch((err) => {
-        console.error("❌ Backend Connection Failed");
-        console.error(err);
-        
-        // Automated diagnostic helper in the console
-        console.group("🔍 Diagnostic Analysis:");
-        console.log(`- API Endpoint checked: ${apiUrl}/api/test`);
-        console.log("- Possible issues to check:");
-        console.log("  1. Cold Start: Render free plans spin down after 15 mins of inactivity. It can take ~50 seconds to boot back up. Try refreshing the page.");
-        console.log("  2. CORS Policy: Check if CORS package is enabled in the backend using \`app.use(cors())\`.");
-        console.log("  3. Mixed Content: If the site is HTTPS (Vercel) and backend is HTTP, the browser will block the request. Ensure the backend URL starts with https://.");
-        console.log("  4. Offline: Check if the Render service has been suspended or is currently rebuilding.");
-        console.groupEnd();
-      });
-  }, []);
-
-  // Sync state changes to browser URL path
+  // Sync page changes to browser URL path
   useEffect(() => {
     if (page === "admin") {
       if (window.location.pathname !== "/admin") {
@@ -161,43 +122,17 @@ function AppContent() {
     }
   }, [page]);
 
-  // When user logs in or state changes, handle page routing and redirects
+  // Handle admin route protection
   useEffect(() => {
-    if (user) {
-      // If user logs in or is active, check path and role
-      const isPathAdmin = window.location.pathname === "/admin";
-      
-      if (isAdmin) {
-        // Admins default to "/admin"
-        setPage("admin");
-        if (window.location.pathname !== "/admin") {
-          window.history.replaceState(null, "", "/admin");
-        }
-      } else {
-        // Non-admins must never see admin pages
-        if (isPathAdmin) {
-          window.history.replaceState(null, "", "/");
-        }
+    if (page === "admin" && !loading) {
+      if (!user) {
+        setPage("login");
+      } else if (!isAdmin) {
         setPage("home");
-      }
-
-      setSiteLoaded(true);
-    } else if (!loading) {
-      // logged out → always go back to login
-      setPage("login");
-      if (window.location.pathname === "/admin") {
         window.history.replaceState(null, "", "/");
       }
     }
-  }, [user, loading, isAdmin]);
-
-  // Protect admin route from unauthorized access
-  useEffect(() => {
-    if (page === "admin" && user && !isAdmin) {
-      setPage("home");
-      window.history.replaceState(null, "", "/");
-    }
-  }, [page, user, isAdmin]);
+  }, [page, user, loading, isAdmin]);
 
   const handleProductClick = (productId) => {
     setSelectedProductId(productId);
@@ -205,20 +140,26 @@ function AppContent() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // 1️⃣ Still resolving session — show spinner
+  const handleSelectFilter = (filter) => {
+    setCollectionFilter(filter);
+    setPage("collection");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Auth resolving spinner
   if (loading) return <AuthLoader />;
 
-  // 2️⃣ Not logged in — show only Login or Signup
-  if (!user) {
+  // Dedicated Auth Views (Login / Signup)
+  if (page === "login" || page === "signup") {
     return (
-      <div className="bg-[#0A0A0F] text-white font-sans min-h-screen relative overflow-hidden">
-        <div className="fixed inset-0 pointer-events-none z-0 opacity-30">
+      <div className="bg-[#07070A] text-white font-sans min-h-screen relative overflow-hidden flex flex-col justify-center">
+        <div className="fixed inset-0 pointer-events-none z-0 opacity-25">
           <SoftAurora
             speed={0.6}
             scale={1.5}
             brightness={1}
-            color1="#f7f7f7"
-            color2="#e100ff"
+            color1="#C5A059"
+            color2="#7A1C1C"
             noiseFrequency={2.5}
             noiseAmplitude={1}
             bandHeight={0.5}
@@ -230,43 +171,62 @@ function AppContent() {
             mouseInfluence={0.25}
           />
         </div>
-        <div className="relative z-10">
+
+        {/* Back to store navigation */}
+        <div className="relative z-20 max-w-md mx-auto w-full px-6 pt-6">
+          <button
+            onClick={() => setPage("home")}
+            className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-[#D4AF37] hover:underline"
+          >
+            &larr; Return to Chronolux Store
+          </button>
+        </div>
+
+        <div className="relative z-10 flex-grow flex items-center justify-center py-8">
           <Suspense fallback={<AuthLoader />}>
-            {page === "signup"
-              ? <Signup setPage={setPage} />
-              : <Login setPage={setPage} />
-            }
+            {page === "signup" ? (
+              <Signup setPage={setPage} />
+            ) : (
+              <Login setPage={setPage} />
+            )}
           </Suspense>
         </div>
       </div>
     );
   }
 
-  // 3️⃣ Logged in — show full website
+  // Full Store Experience (Works for both Guests and Authenticated Collectors)
   return (
-    <div className="bg-[#0A0A0F] text-white font-sans min-h-screen relative overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-35">
+    <div className="bg-[#090A0E] text-white font-sans min-h-screen relative overflow-x-hidden">
+      {/* Ambient background glow */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-20">
         <SoftAurora
-          speed={0.6}
+          speed={0.4}
           scale={1.5}
-          brightness={1}
-          color1="#f7f7f7"
-          color2="#e100ff"
+          brightness={0.8}
+          color1="#C5A059"
+          color2="#3A1C6A"
           noiseFrequency={2.5}
           noiseAmplitude={1}
           bandHeight={0.5}
           bandSpread={1}
           octaveDecay={0.1}
           layerOffset={0}
-          colorSpeed={1}
+          colorSpeed={0.8}
           enableMouseInteraction
-          mouseInfluence={0.25}
+          mouseInfluence={0.2}
         />
       </div>
+
       <div className="relative z-10 flex flex-col min-h-screen">
         <PageLoader done={siteLoaded} />
         {page !== "admin" && (
-          <Navbar currentPage={page} setPage={setPage} onProductClick={handleProductClick} />
+          <Navbar
+            currentPage={page}
+            setPage={setPage}
+            onProductClick={handleProductClick}
+            onSelectFilter={handleSelectFilter}
+          />
         )}
         <main className="flex-grow">
           <Suspense fallback={<AuthLoader />}>
@@ -274,34 +234,36 @@ function AppContent() {
               <>
                 <Hero setPage={setPage} />
                 <Brands />
-                <Categories setPage={setPage} setCollectionCategory={setCollectionCategory} />
+                <Categories setPage={setPage} setCollectionCategory={(cat) => handleSelectFilter({ category: cat })} />
                 <Products onProductClick={handleProductClick} />
                 <OfferBanner />
                 <Reviews />
+                <NewsletterSignup />
               </>
             )}
-            {page === "finder"     && <WatchFinder setPage={setPage} onProductClick={handleProductClick} />}
-            {page === "collection" && <Collection onProductClick={handleProductClick} initialCategory={collectionCategory} />}
-            {page === "brands"     && <BrandsPage />}
-            {page === "men"        && <MenCollection onProductClick={handleProductClick} />}
-            {page === "women"      && <WomenCollection onProductClick={handleProductClick} />}
-            {page === "about"      && <About />}
-            {page === "cart"       && (
-              <ProtectedRoute>
-                <Cart />
-              </ProtectedRoute>
+            {page === "finder" && (
+              <WatchFinder setPage={setPage} onProductClick={handleProductClick} />
             )}
-            {page === "wishlist"   && (
-              <ProtectedRoute>
-                <Wishlist onProductClick={handleProductClick} />
-              </ProtectedRoute>
+            {page === "collection" && (
+              <Collection
+                onProductClick={handleProductClick}
+                initialFilter={collectionFilter}
+              />
             )}
-            {page === "admin"      && (
+            {page === "brands" && <BrandsPage />}
+            {page === "men" && <MenCollection onProductClick={handleProductClick} />}
+            {page === "women" && <WomenCollection onProductClick={handleProductClick} />}
+            {page === "about" && <About />}
+            {page === "sell" && <SellWatch setPage={setPage} />}
+            {page === "contact" && <Contact />}
+            {page === "cart" && <Cart />}
+            {page === "wishlist" && <Wishlist onProductClick={handleProductClick} />}
+            {page === "admin" && (
               <ProtectedRoute adminOnly={true}>
                 <AdminPanel />
               </ProtectedRoute>
             )}
-            {page === "detail"     && (
+            {page === "detail" && (
               <ProductDetail
                 productId={selectedProductId}
                 setPage={setPage}
@@ -322,7 +284,7 @@ function AppContent() {
   );
 }
 
-// ─── Root — providers only, no logic ─────────────────────────────────────────
+// ─── Root Provider ────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <AuthProvider>

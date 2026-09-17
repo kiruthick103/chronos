@@ -79,11 +79,11 @@ export default function Reviews() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
         <div>
-          <p className="text-[#C9A84C] text-xs tracking-[0.3em] uppercase mb-3">Client Voices</p>
-          <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">
-            Worn With <br />
-            <span className="bg-gradient-to-r from-[#C9A84C] to-[#F0D080] bg-clip-text text-transparent">
-              Confidence
+          <p className="text-[#D4AF37] text-xs tracking-[0.3em] uppercase mb-3 font-semibold">Collector Voices &bull; Trustpilot 4.9/5</p>
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-white leading-tight">
+            Acquired With <br />
+            <span className="italic font-normal bg-gradient-to-r from-[#F5E2B3] via-[#D4AF37] to-[#A98539] bg-clip-text text-transparent">
+              Confidence &amp; Distinction
             </span>
           </h2>
         </div>

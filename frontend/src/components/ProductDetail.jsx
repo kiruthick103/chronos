@@ -7,14 +7,8 @@ function StarRow({ rating, size = "w-4 h-4" }) {
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
         <svg key={i} className={size} viewBox="0 0 24 24"
-          fill={i <= Math.floor(rating) ? "#C9A84C" : i - 0.5 <= rating ? "url(#half)" : "none"}
-          stroke="#C9A84C" strokeWidth="1.5">
-          <defs>
-            <linearGradient id="half">
-              <stop offset="50%" stopColor="#C9A84C" />
-              <stop offset="50%" stopColor="transparent" />
-            </linearGradient>
-          </defs>
+          fill={i <= Math.floor(rating) ? "#D4AF37" : "none"}
+          stroke="#D4AF37" strokeWidth="1.5">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
         </svg>
       ))}
@@ -22,71 +16,52 @@ function StarRow({ rating, size = "w-4 h-4" }) {
   );
 }
 
-function RatingBar({ label, pct }) {
-  return (
-    <div className="flex items-center gap-3 group cursor-pointer">
-      <span className="text-[#C9A84C] text-xs w-8 text-right hover:underline">{label} ★</span>
-      <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-[#C9A84C] to-[#F0D080] rounded-full transition-all duration-700"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-white/40 text-xs w-8">{pct}%</span>
-    </div>
-  );
-}
-
-const qaData = [
-  {
-    q: "Is a certificate of authenticity included?",
-    a: "Yes, every Chronolux watch ships with the original manufacturer's box, papers, and a certified certificate of authenticity issued by our in-house horological experts."
-  },
-  {
-    q: "What warranty do I get?",
-    a: "All watches carry a 2-year international Chronolux warranty covering all mechanical components. In-house servicing is available at our authorised service centres."
-  },
-  {
-    q: "Can I return the watch if I change my mind?",
-    a: "We offer a 30-day free return window with full refund, provided the watch is returned in its original unaltered condition with all accompanying documentation."
-  },
-  {
-    q: "Is international shipping available?",
-    a: "Yes, we offer fully insured worldwide shipping via FedEx Priority. Delivery times typically range from 2–5 business days depending on destination."
-  }
-];
-
 export default function ProductDetail({ productId, setPage, onProductClick }) {
-  const { addToCart, toggleWishlist, wishlist, products, reviewsState, fetchReviews, addReview } = useCart();
-  const product = products.find((p) => p.id === productId);
+  const { addToCart, toggleWishlist, wishlist, products } = useCart();
+  const product = products.find((p) => p.id === productId) || products[0];
 
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [reviewForm, setReviewForm] = useState({ reviewer_name: "", rating: 5, title: "", comment: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [expandedQA, setExpandedQA] = useState(null);
+  const [activeTab, setActiveTab] = useState("specs");
 
-  const reviews = reviewsState[productId] || [];
-  const inWishlist = wishlist.find((w) => w.id === productId);
+  const inWishlist = wishlist.some((w) => w.id === product?.id);
 
+  // Reset image on product change
   useEffect(() => {
-    if (productId) fetchReviews(productId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setSelectedImageIndex(0);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [productId]);
 
   if (!product) {
     return (
-      <div className="min-h-screen pt-32 flex items-center justify-center">
-        <p className="text-white/50">Product not found</p>
+      <div className="min-h-screen pt-32 flex flex-col items-center justify-center text-center p-6 bg-[#090A0E] text-white">
+        <p className="text-white/50 text-lg mb-4">Timepiece reference not found in the vault.</p>
+        <button
+          onClick={() => setPage("collection")}
+          className="px-6 py-2.5 rounded-xl bg-[#C5A059] text-[#090A0E] font-bold text-xs uppercase tracking-wider"
+        >
+          Return to Collection
+        </button>
       </div>
     );
   }
 
-  const related = products
-    .filter((p) => p.brand === product.brand && p.id !== product.id)
-    .slice(0, 4);
+  const galleryImages = product.images && product.images.length > 0
+    ? product.images
+    : [product.image];
+
+  const currentImage = galleryImages[selectedImageIndex] || product.image;
+
+  // Handle image mouse movement for zoom
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomPos({ x, y });
+  };
 
   const handleAddToCart = (e) => {
     if (e) e.stopPropagation();
@@ -101,505 +76,378 @@ export default function ProductDetail({ productId, setPage, onProductClick }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSubmitReview = async (e) => {
-    e.preventDefault();
-    if (!reviewForm.reviewer_name || !reviewForm.comment) return;
-    setSubmitting(true);
-    await addReview(productId, reviewForm);
-    setSubmitting(false);
-    setSubmitted(true);
-    setReviewForm({ reviewer_name: "", rating: 5, title: "", comment: "" });
-    setTimeout(() => setSubmitted(false), 4000);
-  };
+  // Related watches from same brand or style
+  const related = products
+    .filter((p) => p.id !== product.id && (p.brand === product.brand || p.style === product.style))
+    .slice(0, 4);
 
-  // Compute rating distribution from reviews
-  const totalReviews = reviews.length || product.reviews || 1;
-  const ratingCounts = [5, 4, 3, 2, 1].map((star) => ({
-    star,
-    pct: Math.round((reviews.filter((r) => r.rating === star).length / Math.max(reviews.length, 1)) * 100)
-  }));
-
-  const avgRating = reviews.length
-    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-    : product.rating;
-
-  const specs = product.specs || {
-    Brand: product.brand,
-    Movement: product.movement || "Swiss Automatic",
-    "Water Resistance": product.water ? `${product.water}m / ${Math.round(product.water * 3.28)}ft` : "30m",
-    "Case Material": "316L Stainless Steel",
-    "Crystal": "Scratch-resistant Sapphire",
-    "Case Diameter": "41mm",
-    "Band Material": "Genuine Calfskin Leather",
-    "Dial Color": "Sunburst Black",
-    Clasp: "Deployant Buckle",
-    Complication: "Date, Seconds",
-  };
-
-  // Delivery estimate
-  const today = new Date();
-  const delivery = new Date(today);
-  delivery.setDate(today.getDate() + 4);
-  const fastest = new Date(today);
-  fastest.setDate(today.getDate() + 2);
-  const deliveryStr = delivery.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const fastestStr = fastest.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-
-  const tabs = ["overview", "specifications", "reviews", "q&a"];
+  // Installment estimate (24 months)
+  const monthlyEstimate = Math.round(product.price / 24);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] pt-20 pb-20">
-      {/* Breadcrumb */}
-      <div className="max-w-7xl mx-auto px-5 sm:px-8 py-4">
-        <nav className="flex items-center gap-2 text-xs text-white/30">
-          <button onClick={() => setPage("home")} className="hover:text-[#C9A84C] transition-colors">Home</button>
+    <div className="min-h-screen bg-[#090A0E] text-white pt-24 pb-24 px-4 sm:px-8">
+      {/* Breadcrumb Navigation */}
+      <div className="max-w-7xl mx-auto py-4 border-b border-white/5 mb-8">
+        <nav className="flex items-center gap-2 text-xs text-white/40 flex-wrap">
+          <button onClick={() => setPage("home")} className="hover:text-[#D4AF37] transition-colors">Home</button>
           <span>/</span>
-          <button onClick={() => setPage("collection")} className="hover:text-[#C9A84C] transition-colors">Collection</button>
+          <button onClick={() => setPage("collection")} className="hover:text-[#D4AF37] transition-colors">Collection</button>
           <span>/</span>
-          <span className="text-white/60 truncate max-w-[200px]">{product.name}</span>
+          <span className="text-[#D4AF37] font-semibold">{product.brand}</span>
+          <span>/</span>
+          <span className="text-white/80 font-medium truncate max-w-xs">{product.name}</span>
         </nav>
       </div>
 
-      <div className="max-w-7xl mx-auto px-5 sm:px-8">
+      <div className="max-w-7xl mx-auto space-y-16">
+        {/* Main Product Showcase Grid */}
+        <div className="grid lg:grid-cols-12 gap-10 xl:gap-14 items-start">
+          {/* Left Column: Multi-Image Gallery with Hover Zoom (7 cols) */}
+          <div className="lg:col-span-7 space-y-4">
+            {/* Main Interactive Viewport */}
+            <div
+              className="relative aspect-square rounded-3xl overflow-hidden bg-[#050608] border border-white/10 flex items-center justify-center cursor-crosshair group select-none shadow-2xl"
+              onMouseEnter={() => setIsZoomed(true)}
+              onMouseLeave={() => setIsZoomed(false)}
+              onMouseMove={handleMouseMove}
+            >
+              {/* Product Badges */}
+              <div className="absolute top-5 left-5 z-20 flex flex-col gap-2 pointer-events-none">
+                {product.certified && (
+                  <span className="bg-[#090A0E]/95 border border-[#D4AF37]/60 text-[#D4AF37] px-3.5 py-1 rounded-full text-xs font-bold tracking-widest uppercase flex items-center gap-1.5 shadow-xl">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Certified Authentic</span>
+                  </span>
+                )}
+                <span className={`px-3 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase shadow-xl w-fit ${
+                  product.condition === "New"
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                    : product.condition === "Vintage"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    : "bg-white/10 text-white border border-white/20"
+                }`}>
+                  {product.condition}
+                </span>
+              </div>
 
-        {/* ── MAIN GRID ── */}
-        <div className="grid lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px] gap-10 mb-16">
+              {/* Standard Image View */}
+              <div
+                className={`w-full h-full transition-transform duration-200 ${
+                  isZoomed ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                <WatchImage
+                  src={currentImage}
+                  alt={`${product.brand} ${product.name}`}
+                  className="w-full h-full object-cover"
+                  fallbackSize="text-7xl"
+                />
+              </div>
 
-          {/* ── LEFT: Images + Tabs ── */}
-          <div>
-            {/* Main image */}
-            <div className="relative rounded-3xl overflow-hidden mb-4 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] h-[480px] sm:h-[560px] flex items-center justify-center group">
-              {product.originalPrice && (
-                <div className="absolute top-5 left-5 z-10 px-3 py-1.5 bg-[#EF4444] text-white rounded-full text-xs font-black tracking-widest uppercase shadow-lg">
-                  SALE — Save ${(product.originalPrice - product.price).toLocaleString()}
-                </div>
+              {/* Magnified Hover Zoom View */}
+              {isZoomed && (
+                <div
+                  className="absolute inset-0 bg-no-repeat pointer-events-none transition-opacity duration-200"
+                  style={{
+                    backgroundImage: `url(${currentImage})`,
+                    backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+                    backgroundSize: "220%",
+                  }}
+                />
               )}
-              <WatchImage
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                fallbackSize="text-[120px]"
-              />
-              {/* Zoom hint */}
-              <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm text-white/50 text-[10px] tracking-widest uppercase px-3 py-1.5 rounded-full border border-white/10">
-                🔍 Hover to zoom
+
+              {/* Zoom Instruction Tag */}
+              <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-md text-white/60 text-[0.65rem] tracking-widest uppercase px-3 py-1 rounded-full border border-white/10 pointer-events-none">
+                Hover to Zoom (2.2x)
               </div>
             </div>
 
-            {/* Tab nav */}
-            <div className="flex gap-1 mb-8 border-b border-white/10 overflow-x-auto scrollbar-hide">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-5 py-3 text-xs font-bold tracking-[0.15em] uppercase whitespace-nowrap transition-all border-b-2 -mb-px ${
-                    activeTab === tab
-                      ? "border-[#C9A84C] text-[#C9A84C]"
-                      : "border-transparent text-white/40 hover:text-white/70"
-                  }`}
-                >
-                  {tab === "q&a" ? "Q&A" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {/* Overview */}
-            {activeTab === "overview" && (
-              <div className="animate-fade-up space-y-8">
-                {/* About */}
-                <div>
-                  <h2 className="text-white font-bold text-lg mb-3">About this watch</h2>
-                  <p className="text-white/60 leading-relaxed text-sm">
-                    {product.description || `The ${product.name} by ${product.brand} is a masterclass in precision engineering and timeless design. Crafted for the discerning collector, every detail has been meticulously refined — from the hand-finished case to the sapphire crystal that protects the exquisite dial. This timepiece is a statement of heritage, craftsmanship, and understated luxury.`}
-                  </p>
-                </div>
-
-                {/* Key highlights */}
-                <div>
-                  <h2 className="text-white font-bold text-lg mb-4">Key Highlights</h2>
-                  <ul className="space-y-3">
-                    {[
-                      `Certified ${product.brand} authentic timepiece with original box & papers`,
-                      `${product.movement || "Swiss Automatic"} movement — COSC chronometer precision`,
-                      `${product.water ? `${product.water}m water resistance` : "30m splash resistance"} — built for everyday confidence`,
-                      "Scratch-resistant sapphire crystal with anti-reflective coating",
-                      "Solid 316L stainless steel case — corrosion and tarnish resistant",
-                      "2-year international warranty + 30-day return guarantee",
-                    ].map((point, i) => (
-                      <li key={i} className="flex items-start gap-3 text-sm text-white/70">
-                        <div className="mt-0.5 w-5 h-5 rounded-full bg-[#C9A84C]/15 border border-[#C9A84C]/30 flex items-center justify-center flex-shrink-0">
-                          <svg className="w-3 h-3 text-[#C9A84C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                            <path d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Delivery info box */}
-                <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-5 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-semibold">FREE Insured Shipping</p>
-                      <p className="text-white/40 text-xs">Standard delivery by <span className="text-white/70 font-semibold">{deliveryStr}</span></p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#C9A84C]/10 border border-[#C9A84C]/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-[#C9A84C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-semibold">Express Available</p>
-                      <p className="text-white/40 text-xs">Fastest delivery by <span className="text-white/70 font-semibold">{fastestStr}</span></p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M4 4h16v16H4z" /><path d="M16 4v4H8V4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-semibold">30-Day Free Returns</p>
-                      <p className="text-white/40 text-xs">Full refund if returned in original condition</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Specifications */}
-            {activeTab === "specifications" && (
-              <div className="animate-fade-up">
-                <h2 className="text-white font-bold text-lg mb-5">Technical Specifications</h2>
-                <div className="bg-white/[0.03] border border-white/8 rounded-2xl overflow-hidden">
-                  {Object.entries(specs).map(([key, value], i) => (
-                    <div key={key} className={`flex justify-between items-center px-6 py-4 text-sm ${i % 2 === 0 ? "bg-white/[0.02]" : ""} border-b border-white/5 last:border-0`}>
-                      <span className="text-white/50 font-medium capitalize">{key}</span>
-                      <span className="text-white font-semibold text-right max-w-[55%]">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Reviews */}
-            {activeTab === "reviews" && (
-              <div className="animate-fade-up space-y-8">
-                {/* Rating summary */}
-                <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-6">
-                  <div className="flex flex-col sm:flex-row gap-8">
-                    <div className="text-center flex-shrink-0">
-                      <div className="text-7xl font-black text-white leading-none mb-1">{avgRating}</div>
-                      <StarRow rating={Number(avgRating)} />
-                      <p className="text-white/40 text-xs mt-2">{reviews.length || totalReviews} reviews</p>
-                    </div>
-                    <div className="flex-1 space-y-2.5 justify-center flex flex-col">
-                      {ratingCounts.map(({ star, pct }) => (
-                        <RatingBar key={star} label={star} pct={pct || (star === 5 ? 75 : star === 4 ? 15 : star === 3 ? 7 : 2)} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Review list */}
-                <div className="space-y-5">
-                  {reviews.map((r) => (
-                    <div key={r.id} className="bg-white/[0.025] border border-white/8 rounded-2xl p-6 animate-fade-up">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <div className="w-8 h-8 rounded-full bg-[#C9A84C]/20 border border-[#C9A84C]/30 flex items-center justify-center text-[#C9A84C] text-xs font-black">
-                              {(r.reviewer_name || "A")[0].toUpperCase()}
-                            </div>
-                            <span className="text-white font-bold text-sm">{r.reviewer_name}</span>
-                            <span className="text-[10px] text-white/20 bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Verified Purchase</span>
-                          </div>
-                          <StarRow rating={r.rating} size="w-3.5 h-3.5" />
-                        </div>
-                        <span className="text-white/25 text-xs">
-                          {new Date(r.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                        </span>
-                      </div>
-                      {r.title && <p className="text-white font-bold text-sm mb-2">{r.title}</p>}
-                      <p className="text-white/60 text-sm leading-relaxed">{r.comment}</p>
-                      <div className="mt-4 flex items-center gap-4 text-xs text-white/25">
-                        <button className="hover:text-white/50 transition-colors">👍 Helpful</button>
-                        <button className="hover:text-white/50 transition-colors">Report</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Write review */}
-                <div className="bg-white/[0.03] border border-[#C9A84C]/20 rounded-2xl p-6">
-                  <h3 className="text-white font-bold text-base mb-5">Write a Customer Review</h3>
-                  {submitted ? (
-                    <div className="flex items-center gap-3 text-green-400 py-4">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" /></svg>
-                      <span className="font-semibold">Review submitted! Thank you for your feedback.</span>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSubmitReview} className="space-y-4">
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <input
-                          type="text"
-                          placeholder="Your name"
-                          value={reviewForm.reviewer_name}
-                          onChange={(e) => setReviewForm((f) => ({ ...f, reviewer_name: e.target.value }))}
-                          required
-                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-[#C9A84C] focus:outline-none placeholder-white/25 w-full"
-                        />
-                        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                          <span className="text-white/40 text-sm">Rating:</span>
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() => setReviewForm((f) => ({ ...f, rating: s }))}
-                                className="transition-transform hover:scale-125"
-                              >
-                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill={s <= reviewForm.rating ? "#C9A84C" : "none"} stroke="#C9A84C" strokeWidth="1.5">
-                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                                </svg>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Review title (optional)"
-                        value={reviewForm.title}
-                        onChange={(e) => setReviewForm((f) => ({ ...f, title: e.target.value }))}
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-[#C9A84C] focus:outline-none placeholder-white/25 w-full"
-                      />
-                      <textarea
-                        placeholder="Share your experience with this timepiece..."
-                        value={reviewForm.comment}
-                        onChange={(e) => setReviewForm((f) => ({ ...f, comment: e.target.value }))}
-                        required
-                        rows={4}
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-[#C9A84C] focus:outline-none placeholder-white/25 w-full resize-none"
-                      />
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="btn-gold px-8 py-3 text-[#0A0A0F] text-xs font-black tracking-widest uppercase rounded-xl disabled:opacity-50"
-                      >
-                        {submitting ? "Submitting..." : "Submit Review"}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Q&A */}
-            {activeTab === "q&a" && (
-              <div className="animate-fade-up space-y-3">
-                <h2 className="text-white font-bold text-lg mb-5">Customer Questions & Answers</h2>
-                {qaData.map((item, i) => (
-                  <div key={i} className="bg-white/[0.025] border border-white/8 rounded-2xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedQA(expandedQA === i ? null : i)}
-                      className="w-full flex items-center justify-between px-6 py-4 text-left group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-[#C9A84C] font-black text-sm flex-shrink-0 mt-0.5">Q</span>
-                        <span className="text-white font-semibold text-sm group-hover:text-[#C9A84C] transition-colors">{item.q}</span>
-                      </div>
-                      <svg className={`w-4 h-4 text-white/30 flex-shrink-0 ml-4 transition-transform duration-300 ${expandedQA === i ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {expandedQA === i && (
-                      <div className="px-6 pb-5 flex items-start gap-3 animate-fade-up">
-                        <span className="text-green-400 font-black text-sm flex-shrink-0 mt-0.5">A</span>
-                        <p className="text-white/60 text-sm leading-relaxed">{item.a}</p>
-                      </div>
-                    )}
-                  </div>
+            {/* Thumbnail Strip */}
+            {galleryImages.length > 1 && (
+              <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                {galleryImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`relative w-20 h-20 rounded-xl overflow-hidden bg-[#0D0E14] border-2 transition-all flex-shrink-0 ${
+                      selectedImageIndex === idx
+                        ? "border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.4)]"
+                        : "border-white/10 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={img} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* ── RIGHT: Purchase Panel ── */}
-          <div className="lg:sticky lg:top-24 h-fit space-y-4">
-
-            {/* Brand & Title */}
-            <div className="bg-white/[0.03] border border-white/8 rounded-3xl p-6">
-              <p className="text-[#C9A84C] text-xs tracking-[0.3em] uppercase font-bold mb-2">{product.brand}</p>
-              <h1 className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight mb-3">{product.name}</h1>
-
-              {/* Rating row */}
-              <div className="flex items-center gap-3 mb-5 pb-5 border-b border-white/8">
-                <StarRow rating={Number(avgRating)} />
-                <span className="text-white font-bold text-sm">{avgRating}</span>
-                <button
-                  onClick={() => setActiveTab("reviews")}
-                  className="text-[#C9A84C] text-sm hover:underline"
-                >
-                  {reviews.length || product.reviews} ratings
-                </button>
+          {/* Right Column: Pricing, Specs & Purchasing Actions (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Title Header */}
+            <div>
+              <div className="flex items-center justify-between text-xs text-[#D4AF37] font-bold tracking-[0.25em] uppercase mb-1">
+                <span>{product.brand}</span>
+                <span className="text-white/40 font-mono tracking-normal">{product.refNumber}</span>
               </div>
+              <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">
+                {product.name}
+              </h1>
+              <div className="flex items-center gap-3 mt-3">
+                <StarRow rating={product.rating || 5} size="w-3.5 h-3.5" />
+                <span className="text-xs text-white/50">
+                  {product.rating} &bull; ({product.reviews || 42} verified collector reviews)
+                </span>
+              </div>
+            </div>
 
-              {/* Price */}
-              <div className="mb-5 pb-5 border-b border-white/8">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-4xl font-black text-[#C9A84C]">${product.price.toLocaleString()}</span>
-                  {product.originalPrice && (
-                    <span className="text-lg text-white/30 line-through">${product.originalPrice.toLocaleString()}</span>
-                  )}
-                </div>
-                {product.originalPrice && (
-                  <p className="text-green-400 text-sm mt-1 font-semibold">
-                    You save: ${(product.originalPrice - product.price).toLocaleString()} ({Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% off)
-                  </p>
+            {/* Pricing Section */}
+            <div className="p-6 rounded-2xl bg-[#0D0E14] border border-white/10 space-y-3">
+              <div className="flex items-baseline gap-3">
+                <span className="font-display text-3xl sm:text-4xl font-bold text-white">
+                  ${product.price.toLocaleString()}
+                </span>
+                <span className="text-xs text-white/40 uppercase tracking-widest">USD</span>
+                {product.originalPrice && product.originalPrice > product.price && (
+                  <span className="text-sm text-white/40 line-through">
+                    ${product.originalPrice.toLocaleString()}
+                  </span>
                 )}
-                <p className="text-white/30 text-xs mt-2">Inclusive of all taxes. Free insured shipping.</p>
               </div>
 
-              {/* Stock status */}
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-green-400 text-sm font-semibold">In Stock</span>
-                <span className="text-white/30 text-xs">— Ready to ship today</span>
+              {/* Installment terms */}
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-white/60">
+                <span>Or approx. <strong className="text-[#E5C378]">${monthlyEstimate}/mo</strong> with 0% APR</span>
+                <span className="text-[0.65rem] text-[#D4AF37] border border-[#D4AF37]/30 px-2 py-0.5 rounded">
+                  Wire / Escrow Available
+                </span>
               </div>
+            </div>
 
-              {/* Quantity */}
-              <div className="mb-5">
-                <label className="text-white/50 text-xs tracking-widest uppercase font-semibold block mb-2">Quantity</label>
-                <div className="flex items-center gap-0 bg-white/5 border border-white/10 rounded-xl w-fit overflow-hidden">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/5 transition-all text-lg font-bold"
-                  >
-                    −
-                  </button>
-                  <span className="w-10 text-center text-white font-bold text-sm">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/5 transition-all text-lg font-bold"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* CTAs */}
-              <div className="space-y-3 mb-5">
-                <button
-                  onClick={handleBuyNow}
-                  className="w-full py-4 rounded-xl bg-[#C9A84C] text-[#0A0A0F] font-black text-sm tracking-[0.15em] uppercase hover:bg-[#F0D080] transition-all shadow-[0_0_30px_rgba(201,168,76,0.35)] hover:shadow-[0_0_45px_rgba(201,168,76,0.55)]"
-                >
-                  Buy Now
-                </button>
+            {/* Primary Action Buttons */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className={`w-full py-4 rounded-xl font-black text-sm tracking-[0.15em] uppercase transition-all ${
+                  className={`flex-1 py-4 rounded-xl text-xs font-bold tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all duration-300 shadow-xl ${
                     added
-                      ? "bg-green-500/20 border-2 border-green-500/40 text-green-400"
-                      : "bg-white/5 border-2 border-white/15 text-white hover:border-[#C9A84C]/50 hover:bg-[#C9A84C]/5 hover:text-[#C9A84C]"
+                      ? "bg-emerald-500 text-[#090A0E]"
+                      : "bg-gradient-to-r from-[#D4AF37] via-[#E5C378] to-[#C5A059] text-[#090A0E] hover:shadow-[0_10px_30px_rgba(212,175,55,0.4)]"
                   }`}
                 >
-                  {added ? "✓ Added to Cart!" : "Add to Cart"}
+                  {added ? (
+                    <>
+                      <svg className="w-4 h-4 text-[#090A0E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Added to Vault Bag</span>
+                    </>
+                  ) : (
+                    <span>Add to Vault Bag</span>
+                  )}
+                </button>
+
+                {/* Wishlist Icon Button */}
+                <button
+                  onClick={() => toggleWishlist(product)}
+                  aria-label="Toggle wishlist"
+                  className={`w-14 h-14 rounded-xl border flex items-center justify-center transition-all ${
+                    inWishlist
+                      ? "bg-[#D4AF37] text-[#090A0E] border-[#D4AF37]"
+                      : "bg-[#0D0E14] text-white/70 hover:text-white border-white/15 hover:border-[#D4AF37]"
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill={inWishlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
                 </button>
               </div>
 
-              {/* Wishlist */}
               <button
-                onClick={() => toggleWishlist(product)}
-                className={`w-full py-3 rounded-xl border text-sm font-semibold tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                  inWishlist
-                    ? "border-[#EF4444]/40 text-[#EF4444] bg-[#EF4444]/5"
-                    : "border-white/10 text-white/50 hover:border-white/25 hover:text-white"
-                }`}
+                onClick={handleBuyNow}
+                className="w-full py-3.5 rounded-xl border border-white/20 hover:border-[#D4AF37] bg-white/5 hover:bg-white/10 text-white text-xs font-bold tracking-[0.2em] uppercase transition-all"
               >
-                <svg className="w-4 h-4" fill={inWishlist ? "#EF4444" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                {inWishlist ? "Saved to Wishlist" : "Add to Wishlist"}
+                Express Checkout
               </button>
             </div>
 
-            {/* Trust badges */}
-            <div className="bg-white/[0.02] border border-white/8 rounded-2xl p-5 grid grid-cols-2 gap-3">
-              {[
-                { icon: "🔒", label: "Secure Payment", sub: "256-bit SSL" },
-                { icon: "✅", label: "Authenticated", sub: "Certificate included" },
-                { icon: "🚚", label: "Free Shipping", sub: "Fully insured" },
-                { icon: "↩️", label: "30-Day Returns", sub: "No questions asked" },
-              ].map((b) => (
-                <div key={b.label} className="flex items-start gap-2.5">
-                  <span className="text-lg">{b.icon}</span>
-                  <div>
-                    <p className="text-white text-xs font-semibold">{b.label}</p>
-                    <p className="text-white/30 text-[10px]">{b.sub}</p>
-                  </div>
-                </div>
-              ))}
+            {/* Quick Assurance Strip */}
+            <div className="grid grid-cols-2 gap-3 pt-3">
+              <div className="p-3 rounded-xl bg-[#0D0E14] border border-white/5 flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-[#D4AF37] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-[0.7rem] text-white/70">In Vault &bull; Ships in 24h</span>
+              </div>
+              <div className="p-3 rounded-xl bg-[#0D0E14] border border-white/5 flex items-center gap-2.5">
+                <svg className="w-4 h-4 text-[#D4AF37] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <span className="text-[0.7rem] text-white/70">2-Year Full Warranty</span>
+              </div>
             </div>
 
-            {/* Sold by */}
-            <div className="bg-white/[0.02] border border-white/8 rounded-2xl p-5">
-              <p className="text-white/40 text-xs mb-1">Sold by</p>
-              <p className="text-white font-bold text-sm">Chronolux Official Store</p>
-              <p className="text-green-400 text-xs mt-0.5">⭐ 4.97 • 10,000+ sales</p>
+            {/* Provenance Narrative */}
+            <div className="pt-4">
+              <h4 className="text-xs font-bold tracking-widest uppercase text-[#D4AF37] mb-2">
+                Horological Provenance
+              </h4>
+              <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
+                {product.description}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* ── RELATED PRODUCTS ── */}
+        {/* ── SECTION: FULL SPECS TABLE & AUTHENTICATION TRUST ── */}
+        <div className="grid lg:grid-cols-12 gap-10 pt-10 border-t border-white/10">
+          {/* Specs Table (7 cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="font-display text-2xl font-bold text-white">
+                Technical Specifications
+              </h3>
+              <span className="text-xs text-[#D4AF37] tracking-wider uppercase font-semibold">
+                Factory Master Specs
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-[#0D0E14] overflow-hidden">
+              <table className="w-full text-xs text-left">
+                <tbody>
+                  {[
+                    ["Brand", product.brand],
+                    ["Reference Number", product.refNumber || "N/A"],
+                    ["Model Series", product.name],
+                    ["Condition", `${product.condition} (Guaranteed Flawless Mechanism)`],
+                    ["Case Diameter", product.specs?.caseSize || "41mm"],
+                    ["Case Material", product.specs?.caseMaterial || product.caseMaterial],
+                    ["Movement", product.specs?.movement || product.movement],
+                    ["Power Reserve", product.specs?.powerReserve || "48+ Hours"],
+                    ["Water Resistance", product.specs?.waterResistance || `${product.water || 50}m`],
+                    ["Crystal", product.specs?.crystal || "Sapphire Crystal with Anti-Reflective Coating"],
+                    ["Strap / Bracelet", product.specs?.bracelet || "Original Integrated Bracelet"],
+                    ["Box & Papers", product.specs?.boxPapers || product.boxPapers || "Complete Set"],
+                    ["Warranty", product.specs?.warranty || "2-Year Chronolux Certified Warranty"]
+                  ].map(([k, v], idx) => (
+                    <tr
+                      key={k}
+                      className={`border-b border-white/5 ${idx % 2 === 0 ? "bg-white/[0.01]" : "bg-white/[0.02]"}`}
+                    >
+                      <th className="py-3 px-4 font-semibold text-white/50 w-2/5 uppercase tracking-wider text-[0.68rem]">
+                        {k}
+                      </th>
+                      <td className="py-3 px-4 text-white/90 font-medium">
+                        {v}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Authentication & Warranty Trust Section (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="border-b border-white/10 pb-4">
+              <h3 className="font-display text-2xl font-bold text-white">
+                Authentication &amp; Warranty
+              </h3>
+              <p className="text-xs text-white/40 mt-1">Our unconditional pledge to every collector</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-5 rounded-2xl bg-[#0F1118] border border-white/10 space-y-2">
+                <div className="flex items-center gap-2 text-[#D4AF37]">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <h4 className="font-bold text-sm text-white">30-Point Horological Inspection</h4>
+                </div>
+                <p className="text-xs text-white/60 leading-relaxed pl-7">
+                  Every movement undergoes pressure testing, timegrapher amplitude calibration, and examination under 10x magnification by Swiss-certified horologists.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#0F1118] border border-white/10 space-y-2">
+                <div className="flex items-center gap-2 text-[#D4AF37]">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 004 11a7.96 7.96 0 00.99 3.868" />
+                  </svg>
+                  <h4 className="font-bold text-sm text-white">Global Registry Verification</h4>
+                </div>
+                <p className="text-xs text-white/60 leading-relaxed pl-7">
+                  All serial numbers are vetted against the Watch Register and global loss databases to ensure untarnished provenance and clear legal title.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#0F1118] border border-white/10 space-y-2">
+                <div className="flex items-center gap-2 text-[#D4AF37]">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h4 className="font-bold text-sm text-white">2-Year Full Mechanical Warranty</h4>
+                </div>
+                <p className="text-xs text-white/60 leading-relaxed pl-7">
+                  Should any mechanical irregularity occur, our Geneva service workshop handles all repairs using exclusively genuine components at zero charge.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── SECTION: RELATED WATCHES CAROUSEL ── */}
         {related.length > 0 && (
-          <section className="mt-4">
-            <h2 className="font-display text-3xl font-bold text-white mb-2">More from <span className="bg-gradient-to-r from-[#C9A84C] to-[#F0D080] bg-clip-text text-transparent">{product.brand}</span></h2>
-            <p className="text-white/40 text-sm mb-8">Customers who viewed this also explored</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {related.map((p, i) => (
+          <div className="pt-12 border-t border-white/10 space-y-8">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs text-[#D4AF37] uppercase tracking-[0.25em] font-semibold">
+                  Complementary References
+                </p>
+                <h3 className="font-display text-3xl font-bold text-white mt-1">
+                  Similar Timepieces You May Admire
+                </h3>
+              </div>
+              <button
+                onClick={() => setPage("collection")}
+                className="text-xs text-[#D4AF37] hover:underline uppercase tracking-wider font-semibold hidden sm:inline"
+              >
+                View Complete Vault &rarr;
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {related.map((rel) => (
                 <div
-                  key={p.id}
-                  onClick={() => onProductClick && onProductClick(p.id)}
-                  className="bg-[#111118] border border-white/5 rounded-2xl overflow-hidden card-hover group animate-fade-up cursor-pointer"
-                  style={{ animationDelay: `${i * 0.05}s` }}
+                  key={rel.id}
+                  onClick={() => onProductClick && onProductClick(rel.id)}
+                  className="bg-[#0D0E14] border border-white/10 rounded-2xl overflow-hidden hover:border-[#D4AF37]/50 hover:shadow-2xl transition-all duration-300 cursor-pointer group flex flex-col justify-between"
                 >
-                  <div className="h-48 bg-gradient-to-br from-[#C9A84C]/10 to-transparent flex items-center justify-center overflow-hidden">
+                  <div className="aspect-square bg-[#050608] relative overflow-hidden flex items-center justify-center">
                     <WatchImage
-                      src={p.image}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      fallbackSize="text-4xl"
+                      src={rel.image}
+                      alt={rel.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
-                  </div>
-                  <div className="p-5">
-                    <p className="text-xs text-white/25 tracking-widest uppercase mb-1">{p.brand}</p>
-                    <h4 className="text-white font-bold text-sm mb-2 group-hover:text-[#C9A84C] transition-colors">{p.name}</h4>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#C9A84C] font-black">${p.price.toLocaleString()}</span>
-                      <div className="flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <svg key={s} className="w-3 h-3" viewBox="0 0 24 24" fill={s <= Math.floor(p.rating) ? "#C9A84C" : "none"} stroke="#C9A84C" strokeWidth="1.5">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                          </svg>
-                        ))}
-                      </div>
+                    <div className="absolute top-3 left-3 bg-[#090A0E]/90 text-white text-[0.6rem] font-bold px-2.5 py-0.5 rounded-full border border-white/10 uppercase">
+                      {rel.brand}
                     </div>
+                  </div>
+
+                  <div className="p-4 space-y-2">
+                    <h4 className="font-display font-bold text-sm text-white group-hover:text-[#E5C378] transition-colors line-clamp-1">
+                      {rel.name}
+                    </h4>
+                    <p className="text-xs text-[#D4AF37] font-bold">
+                      ${rel.price.toLocaleString()} USD
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
       </div>
     </div>

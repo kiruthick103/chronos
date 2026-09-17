@@ -2,402 +2,528 @@ import { useState, useEffect, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import SearchOverlay from "./SearchOverlay";
+import TrustBar from "./TrustBar";
+import { brandsList, categoriesList } from "../data/products";
 
-// Base nav links — Admin is added dynamically based on role
-const BASE_NAV_LINKS = [
-  { label: "Collection", page: "collection" },
-  { label: "Brands", page: "brands" },
-  { label: "Men", page: "men" },
-  { label: "Women", page: "women" },
-  { label: "About", page: "about" },
-];
-
-export default function Navbar({ currentPage, setPage, onProductClick }) {
-  const [open, setOpen] = useState(false);
+export default function Navbar({ currentPage, setPage, onProductClick, onSelectFilter }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const [mobileShopExpanded, setMobileShopExpanded] = useState(false);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+
   const { cartCount, wishlistCount } = useCart();
   const { user, isAdmin, signOut } = useAuth();
-  const dropdownRef = useRef(null);
+  const megaMenuTimeoutRef = useRef(null);
+  const accountRef = useRef(null);
 
-  // Build nav links: admin link only for admins
-  const navLinks = isAdmin
-    ? [...BASE_NAV_LINKS, { label: "Admin", page: "admin", adminOnly: true }]
-    : BASE_NAV_LINKS;
-
-  const displayName =
-    user?.user_metadata?.full_name ||
-    user?.email?.split("@")[0] ||
-    "Account";
-
-  // Scroll listener
+  // Scroll listener for sticky header styling
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
+    const handleScroll = () => setScrolled(window.scrollY > 30);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close dropdown on outside click
+  // Close account dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
+      if (accountRef.current && !accountRef.current.contains(e.target)) {
+        setAccountDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleNavClick = (page, e) => {
-    e?.preventDefault();
+  const handleMouseEnterShop = () => {
+    if (megaMenuTimeoutRef.current) clearTimeout(megaMenuTimeoutRef.current);
+    setMegaMenuOpen(true);
+  };
+
+  const handleMouseLeaveShop = () => {
+    megaMenuTimeoutRef.current = setTimeout(() => {
+      setMegaMenuOpen(false);
+    }, 200);
+  };
+
+  const navigateTo = (page, filter = null) => {
+    if (filter && onSelectFilter) {
+      onSelectFilter(filter);
+    }
     setPage(page);
-    setOpen(false);
-    setDropdownOpen(false);
+    setMegaMenuOpen(false);
+    setMobileOpen(false);
+    setAccountDropdownOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleLogout = async () => {
-    setDropdownOpen(false);
+    setAccountDropdownOpen(false);
     await signOut();
-    setPage("home");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    navigateTo("home");
   };
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
-          ? "bg-[#0A0A0F]/95 backdrop-blur-xl shadow-[0_1px_0_rgba(201,168,76,0.15)] py-0"
-          : "bg-transparent py-2"
-      }`}
-    >
-      <nav className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-6">
+    <>
+      <TrustBar />
+      <header
+        className={`sticky top-0 left-0 right-0 z-40 transition-all duration-300 ${
+          scrolled
+            ? "bg-[#090A0E]/95 backdrop-blur-xl border-b border-[#D4AF37]/20 shadow-2xl py-2"
+            : "bg-[#090A0E]/80 backdrop-blur-md border-b border-white/5 py-3"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between gap-4">
+          {/* Brand Logo */}
+          <button
+            onClick={() => navigateTo("home")}
+            className="flex items-center gap-3 group text-left flex-shrink-0"
+            aria-label="Chronolux Home"
+          >
+            <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-[#E5C378] via-[#C5A059] to-[#8A6A27] p-[1.5px] shadow-[0_0_15px_rgba(197,160,89,0.3)]">
+              <div className="w-full h-full rounded-full bg-[#090A0E] flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#D4AF37] group-hover:rotate-45 transition-transform duration-500">
+                  <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 8v4l2.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className="font-display text-xl font-bold tracking-[0.2em] uppercase text-white leading-none">
+                Chrono<span className="text-[#D4AF37]">lux</span>
+              </span>
+              <span className="text-[0.55rem] tracking-[0.35em] uppercase text-[#D4AF37]/70 font-medium mt-0.5">
+                Geneva &bull; Paris &bull; New York
+              </span>
+            </div>
+          </button>
 
-        {/* Logo */}
-        <a href="#" onClick={(e) => handleNavClick("home", e)} className="flex items-center gap-2.5 group flex-shrink-0" aria-label="Chronolux home">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 rounded-full bg-[#C9A84C]/20 scale-0 group-hover:scale-150 transition-transform duration-500" />
-            <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#8B6914] flex items-center justify-center shadow-[0_0_12px_rgba(201,168,76,0.4)]">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="8" stroke="#0A0A0F" strokeWidth="2"/>
-                <path d="M12 7v5l3 3" stroke="#0A0A0F" strokeWidth="2" strokeLinecap="round"/>
+          {/* Desktop Navigation with Mega Menu */}
+          <nav className="hidden lg:flex items-center gap-8">
+            {/* Shop with Mega-Menu Trigger */}
+            <div
+              className="relative py-2"
+              onMouseEnter={handleMouseEnterShop}
+              onMouseLeave={handleMouseLeaveShop}
+            >
+              <button
+                onClick={() => navigateTo("collection")}
+                className={`flex items-center gap-1.5 text-xs font-semibold tracking-[0.2em] uppercase transition-colors duration-200 py-1 ${
+                  currentPage === "collection" ? "text-[#D4AF37]" : "text-white/80 hover:text-white"
+                }`}
+                aria-expanded={megaMenuOpen}
+              >
+                <span>Shop</span>
+                <svg
+                  className={`w-3 h-3 text-[#D4AF37] transition-transform duration-300 ${
+                    megaMenuOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Mega-Menu Dropdown Panel */}
+              {megaMenuOpen && (
+                <div className="absolute top-full -left-24 w-[760px] bg-[#0D0E13] border border-[#D4AF37]/30 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.8)] backdrop-blur-2xl p-6 grid grid-cols-3 gap-6 animate-fade-in z-50">
+                  {/* Column 1: Browse by Brand */}
+                  <div>
+                    <h4 className="text-[0.68rem] tracking-[0.25em] uppercase font-bold text-[#D4AF37] mb-3 pb-2 border-b border-white/10">
+                      Prestige Brands
+                    </h4>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                      {brandsList.map((brand) => (
+                        <button
+                          key={brand}
+                          onClick={() => navigateTo("collection", { brand })}
+                          className="text-left text-xs text-white/70 hover:text-[#E5C378] py-1 transition-colors block truncate"
+                        >
+                          {brand}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Column 2: Browse by Category / Style */}
+                  <div>
+                    <h4 className="text-[0.68rem] tracking-[0.25em] uppercase font-bold text-[#D4AF37] mb-3 pb-2 border-b border-white/10">
+                      Horological Styles
+                    </h4>
+                    <ul className="space-y-2">
+                      {categoriesList.filter((c) => c !== "All").map((cat) => (
+                        <li key={cat}>
+                          <button
+                            onClick={() => navigateTo("collection", { category: cat })}
+                            className="text-left text-xs text-white/70 hover:text-[#E5C378] py-1 transition-colors flex items-center justify-between w-full"
+                          >
+                            <span>{cat}</span>
+                            <span className="text-[0.65rem] text-[#D4AF37]/50">&rarr;</span>
+                          </button>
+                        </li>
+                      ))}
+                      <li className="pt-2">
+                        <button
+                          onClick={() => navigateTo("collection", { condition: "Vintage" })}
+                          className="text-left text-xs text-[#E5C378] hover:underline font-medium block"
+                        >
+                          &bull; Vintage Curations
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          onClick={() => navigateTo("collection", { condition: "New" })}
+                          className="text-left text-xs text-[#E5C378] hover:underline font-medium block"
+                        >
+                          &bull; Unworn &amp; New In Box
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Column 3: Featured Horological Spotlight */}
+                  <div className="bg-gradient-to-b from-[#14161F] to-[#0A0A0F] border border-white/10 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-0.5 rounded-full inline-block mb-2">
+                        Curator's Choice
+                      </span>
+                      <h5 className="font-display text-sm font-bold text-white mb-1">
+                        Rolex Cosmograph Daytona
+                      </h5>
+                      <p className="text-[0.7rem] text-white/50 mb-3">
+                        Ref. 116500LN "Panda" — White Lacquer Dial with Cerachrom Bezel.
+                      </p>
+                      <div className="text-xs text-[#D4AF37] font-semibold mb-3">
+                        $31,500 USD
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (onProductClick) onProductClick("rolex-daytona-116500ln");
+                        else navigateTo("collection");
+                        setMegaMenuOpen(false);
+                      }}
+                      className="w-full py-2 rounded-lg bg-[#C5A059] hover:bg-[#D4AF37] text-[#090A0E] text-[0.72rem] font-bold tracking-wider uppercase transition-colors text-center"
+                    >
+                      View Timepiece
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Brands Nav */}
+            <button
+              onClick={() => navigateTo("brands")}
+              className={`text-xs font-semibold tracking-[0.2em] uppercase transition-colors duration-200 py-1 ${
+                currentPage === "brands" ? "text-[#D4AF37]" : "text-white/80 hover:text-white"
+              }`}
+            >
+              Brands
+            </button>
+
+            {/* Sell Your Watch Nav */}
+            <button
+              onClick={() => navigateTo("sell")}
+              className={`text-xs font-semibold tracking-[0.2em] uppercase transition-colors duration-200 py-1 relative ${
+                currentPage === "sell" ? "text-[#D4AF37]" : "text-white/80 hover:text-white"
+              }`}
+            >
+              <span>Sell Your Watch</span>
+              <span className="absolute -top-2 -right-3 text-[0.55rem] font-bold text-[#090A0E] bg-[#D4AF37] px-1.5 py-0.2 rounded-full uppercase tracking-normal">
+                Instant
+              </span>
+            </button>
+
+            {/* About Nav */}
+            <button
+              onClick={() => navigateTo("about")}
+              className={`text-xs font-semibold tracking-[0.2em] uppercase transition-colors duration-200 py-1 ${
+                currentPage === "about" ? "text-[#D4AF37]" : "text-white/80 hover:text-white"
+              }`}
+            >
+              About
+            </button>
+
+            {/* Contact Nav */}
+            <button
+              onClick={() => navigateTo("contact")}
+              className={`text-xs font-semibold tracking-[0.2em] uppercase transition-colors duration-200 py-1 ${
+                currentPage === "contact" ? "text-[#D4AF37]" : "text-white/80 hover:text-white"
+              }`}
+            >
+              Contact
+            </button>
+
+            {/* Admin Link if Admin */}
+            {isAdmin && (
+              <button
+                onClick={() => navigateTo("admin")}
+                className="text-xs font-semibold tracking-[0.2em] uppercase text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded hover:bg-[#D4AF37]/10 transition-colors"
+              >
+                Admin
+              </button>
+            )}
+          </nav>
+
+          {/* Action Icons: Search, Wishlist, Cart, Account */}
+          <div className="flex items-center gap-4 sm:gap-6">
+            {/* Search Trigger */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search catalog"
+              className="p-2 text-white/70 hover:text-[#D4AF37] transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+                <circle cx="11" cy="11" r="7" />
+                <path strokeLinecap="round" d="m20 20-3.5-3.5" />
               </svg>
+            </button>
+
+            {/* Wishlist */}
+            <button
+              onClick={() => navigateTo("wishlist")}
+              aria-label={`Wishlist with ${wishlistCount} items`}
+              className="p-2 text-white/70 hover:text-[#D4AF37] transition-colors relative"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              {wishlistCount > 0 && (
+                <span className="absolute 0 top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#C5A059] text-[#090A0E] text-[0.65rem] font-bold flex items-center justify-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </button>
+
+            {/* Cart */}
+            <button
+              onClick={() => navigateTo("cart")}
+              aria-label={`Shopping bag with ${cartCount} items`}
+              className="p-2 text-white/70 hover:text-[#D4AF37] transition-colors relative"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              {cartCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#D4AF37] text-[#090A0E] text-[0.65rem] font-bold flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Account / Auth dropdown */}
+            <div className="relative" ref={accountRef}>
+              <button
+                onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                aria-label="Account menu"
+                className="p-2 text-white/70 hover:text-[#D4AF37] transition-colors flex items-center gap-1.5"
+              >
+                <div className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-xs text-[#E5C378] font-bold">
+                  {user ? (user.email ? user.email[0].toUpperCase() : "U") : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+
+              {/* Account Dropdown */}
+              {accountDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-[#0D0E13] border border-[#D4AF37]/30 rounded-xl shadow-2xl py-2 z-50 animate-fade-in text-xs">
+                  {user ? (
+                    <>
+                      <div className="px-4 py-2 border-b border-white/10">
+                        <p className="text-[0.65rem] text-white/40 uppercase tracking-widest">Signed in as</p>
+                        <p className="font-semibold text-white truncate">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={() => navigateTo("profile")}
+                        className="w-full text-left px-4 py-2 text-white/80 hover:text-[#D4AF37] hover:bg-white/5 transition-colors"
+                      >
+                        Account &amp; Orders
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => navigateTo("admin")}
+                          className="w-full text-left px-4 py-2 text-[#D4AF37] hover:bg-white/5 transition-colors font-medium"
+                        >
+                          Horological Admin
+                        </button>
+                      )}
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-red-400 hover:bg-white/5 transition-colors"
+                      >
+                        Sign Out
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-4 py-2 border-b border-white/10">
+                        <p className="font-medium text-white">Guest Collector</p>
+                        <p className="text-[0.68rem] text-white/50">Sign in to manage orders &amp; valuations</p>
+                      </div>
+                      <button
+                        onClick={() => navigateTo("login")}
+                        className="w-full text-left px-4 py-2 text-[#D4AF37] font-semibold hover:bg-white/5 transition-colors"
+                      >
+                        Sign In / Register
+                      </button>
+                      <button
+                        onClick={() => navigateTo("sell")}
+                        className="w-full text-left px-4 py-2 text-white/80 hover:bg-white/5 transition-colors"
+                      >
+                        Request Watch Valuation
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle navigation menu"
+              className="lg:hidden p-2 text-white/80 hover:text-white"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                {mobileOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileOpen && (
+          <div className="lg:hidden bg-[#090A0E] border-b border-[#D4AF37]/20 px-6 py-6 animate-fade-in text-sm space-y-4 max-h-[85vh] overflow-y-auto">
+            {/* Shop Collapsible in Mobile */}
+            <div>
+              <button
+                onClick={() => setMobileShopExpanded(!mobileShopExpanded)}
+                className="flex items-center justify-between w-full text-left font-semibold tracking-wider uppercase text-white py-2"
+              >
+                <span>Shop Catalog</span>
+                <span className="text-[#D4AF37]">{mobileShopExpanded ? "−" : "+"}</span>
+              </button>
+              {mobileShopExpanded && (
+                <div className="pl-4 py-2 space-y-3 border-l border-[#D4AF37]/20 mt-1">
+                  <button
+                    onClick={() => navigateTo("collection")}
+                    className="block text-xs text-[#D4AF37] font-semibold"
+                  >
+                    &bull; View All 32+ Watches
+                  </button>
+                  <p className="text-[0.65rem] text-white/40 uppercase tracking-wider font-bold pt-1">
+                    Featured Brands
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-white/70">
+                    {brandsList.map((b) => (
+                      <button
+                        key={b}
+                        onClick={() => navigateTo("collection", { brand: b })}
+                        className="text-left py-1 hover:text-[#D4AF37]"
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[0.65rem] text-white/40 uppercase tracking-wider font-bold pt-2">
+                    By Category
+                  </p>
+                  <div className="space-y-1.5 text-xs text-white/70">
+                    {categoriesList.filter((c) => c !== "All").map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => navigateTo("collection", { category: c })}
+                        className="block py-1 hover:text-[#D4AF37]"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => navigateTo("brands")}
+              className="block w-full text-left font-semibold tracking-wider uppercase text-white/90 py-2 border-b border-white/5"
+            >
+              Prestige Brands
+            </button>
+
+            <button
+              onClick={() => navigateTo("sell")}
+              className="flex items-center justify-between w-full text-left font-semibold tracking-wider uppercase text-[#D4AF37] py-2 border-b border-white/5"
+            >
+              <span>Sell Your Watch</span>
+              <span className="text-[0.6rem] bg-[#D4AF37]/20 text-[#D4AF37] px-2 py-0.5 rounded">
+                Instant Valuation
+              </span>
+            </button>
+
+            <button
+              onClick={() => navigateTo("about")}
+              className="block w-full text-left font-semibold tracking-wider uppercase text-white/90 py-2 border-b border-white/5"
+            >
+              About Chronolux
+            </button>
+
+            <button
+              onClick={() => navigateTo("contact")}
+              className="block w-full text-left font-semibold tracking-wider uppercase text-white/90 py-2 border-b border-white/5"
+            >
+              Concierge &amp; Contact
+            </button>
+
+            {isAdmin && (
+              <button
+                onClick={() => navigateTo("admin")}
+                className="block w-full text-left font-semibold tracking-wider uppercase text-[#D4AF37] py-2"
+              >
+                Horological Admin Panel
+              </button>
+            )}
+
+            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+              {user ? (
+                <button
+                  onClick={handleLogout}
+                  className="text-xs text-red-400 font-semibold uppercase tracking-wider"
+                >
+                  Sign Out ({user.email})
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigateTo("login")}
+                  className="w-full py-2.5 rounded-lg bg-[#C5A059] text-[#090A0E] text-center font-bold tracking-wider uppercase text-xs"
+                >
+                  Sign In / Register
+                </button>
+              )}
             </div>
           </div>
-          <span className="text-[1.1rem] font-bold tracking-[0.18em] text-white uppercase leading-none">
-            Chrono<span className="text-[#C9A84C]">lux</span>
-          </span>
-        </a>
+        )}
+      </header>
 
-        {/* Desktop links */}
-        <ul className="hidden lg:flex items-center gap-7" role="navigation">
-          {navLinks.map(({ label, page, adminOnly }) => (
-            <li key={label}>
-              <a
-                href="#"
-                onClick={(e) => handleNavClick(page, e)}
-                className={`relative text-[0.78rem] tracking-[0.18em] uppercase font-medium transition-colors duration-200 group ${
-                  adminOnly
-                    ? currentPage === page
-                      ? "text-[#C9A84C]"
-                      : "text-[#C9A84C]/50 hover:text-[#C9A84C]"
-                    : currentPage === page
-                    ? "text-[#C9A84C]"
-                    : "text-white/55 hover:text-white"
-                }`}
-              >
-                {label}
-                {adminOnly && (
-                  <span className="ml-1.5 text-[8px] bg-[#C9A84C]/20 text-[#C9A84C] px-1.5 py-0.5 rounded-full font-black tracking-wider uppercase align-middle">A</span>
-                )}
-                <span className={`absolute -bottom-0.5 left-0 h-px bg-gradient-to-r from-[#C9A84C] to-[#F0D080] transition-all duration-300 ${currentPage === page ? "w-full" : "w-0 group-hover:w-full"}`} />
-              </a>
-            </li>
-          ))}
-          <li>
-            <button
-              onClick={(e) => handleNavClick("finder", e)}
-              className={`relative text-[0.78rem] tracking-[0.18em] uppercase font-medium transition-colors duration-200 group ${
-                currentPage === "finder" ? "text-[#C9A84C]" : "text-white/55 hover:text-white"
-              }`}
-            >
-              Find Your Watch
-              <span className={`absolute -bottom-0.5 left-0 h-px bg-gradient-to-r from-[#C9A84C] to-[#F0D080] transition-all duration-300 ${currentPage === "finder" ? "w-full" : "w-0 group-hover:w-full"}`} />
-            </button>
-          </li>
-        </ul>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 sm:gap-2">
-          <button
-            onClick={() => setSearchOpen(true)}
-            aria-label="Search"
-            className="w-9 h-9 flex items-center justify-center text-white/50 hover:text-[#C9A84C] transition-colors duration-200 rounded-full hover:bg-white/5"
-          >
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-          </button>
-
-          <button
-            onClick={(e) => handleNavClick("wishlist", e)}
-            aria-label="Wishlist"
-            className="hidden sm:flex relative w-9 h-9 items-center justify-center text-white/50 hover:text-[#EF4444] transition-colors duration-200 rounded-full hover:bg-white/5"
-          >
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            {wishlistCount > 0 && (
-              <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#EF4444] text-white text-[8px] font-black rounded-full flex items-center justify-center leading-none">
-                {wishlistCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={(e) => handleNavClick("cart", e)}
-            aria-label="Shopping cart"
-            className="relative w-9 h-9 flex items-center justify-center text-white/50 hover:text-[#C9A84C] transition-colors duration-200 rounded-full hover:bg-white/5"
-          >
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 0 1-8 0"/>
-            </svg>
-            {cartCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-[#C9A84C] text-[#0A0A0F] text-[9px] font-black rounded-full flex items-center justify-center leading-none animate-pulse">
-                {cartCount > 9 ? "9+" : cartCount}
-              </span>
-            )}
-          </button>
-
-          {/* Auth Area — Desktop */}
-          {user ? (
-            /* User dropdown */
-            <div className="relative hidden sm:block" ref={dropdownRef}>
-              <button
-                id="user-menu-btn"
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 ml-1 px-3 py-1.5 rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/5 hover:bg-[#C9A84C]/10 hover:border-[#C9A84C]/60 transition-all duration-200 group"
-                aria-haspopup="true"
-                aria-expanded={dropdownOpen}
-              >
-                {/* Avatar circle */}
-                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#8B6914] flex items-center justify-center text-[10px] font-black text-[#0A0A0F] uppercase flex-shrink-0">
-                  {displayName.charAt(0)}
-                </span>
-                <span className="text-xs text-white/80 font-medium tracking-wide max-w-[100px] truncate group-hover:text-white transition-colors">
-                  {displayName}
-                </span>
-                <svg
-                  width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"
-                  className={`text-white/40 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
-                >
-                  <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </button>
-
-              {/* Dropdown menu */}
-              <div
-                className={`absolute right-0 top-full mt-2 w-48 bg-[#0D0D14] border border-white/10 rounded-xl shadow-2xl overflow-hidden transition-all duration-200 origin-top-right ${
-                  dropdownOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
-                }`}
-              >
-                {/* User info header */}
-                <div className="px-4 py-3 border-b border-white/8">
-                  <p className="text-xs text-white/40 tracking-wider uppercase">Signed in as</p>
-                  <p className="text-sm text-white font-medium truncate mt-0.5">{displayName}</p>
-                  <p className="text-xs text-white/30 truncate">{user.email}</p>
-                </div>
-
-                {/* Menu items */}
-                <div className="py-1">
-                  <button
-                    id="dropdown-profile-btn"
-                    onClick={() => handleNavClick("profile")}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/65 hover:text-white hover:bg-white/5 transition-colors text-left"
-                  >
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    Profile
-                  </button>
-
-                  {/* Admin Panel shortcut — only for admins */}
-                  {isAdmin && (
-                    <button
-                      id="dropdown-admin-btn"
-                      onClick={() => handleNavClick("admin")}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#C9A84C]/70 hover:text-[#C9A84C] hover:bg-[#C9A84C]/5 transition-colors text-left"
-                    >
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                      </svg>
-                      Admin Panel
-                    </button>
-                  )}
-
-                  <div className="border-t border-white/8 my-1" />
-
-                  <button
-                    id="dropdown-logout-btn"
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/5 transition-colors text-left"
-                  >
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                      <polyline points="16 17 21 12 16 7"/>
-                      <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
-                    Logout
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Login / Sign Up links */
-            <div className="hidden sm:flex items-center gap-2 ml-1">
-              <button
-                id="nav-login-btn"
-                onClick={() => handleNavClick("login")}
-                className="px-4 py-2 text-xs font-semibold tracking-[0.12em] uppercase text-white/60 hover:text-white transition-colors duration-200"
-              >
-                Login
-              </button>
-              <button
-                id="nav-signup-btn"
-                onClick={() => handleNavClick("signup")}
-                className="px-4 py-2 text-xs font-black tracking-[0.12em] uppercase rounded-sm btn-gold text-[#0A0A0F]"
-              >
-                Sign Up
-              </button>
-            </div>
-          )}
-
-          {/* Mobile menu toggle */}
-          <button
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors ml-1"
-          >
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              {open
-                ? <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12"/>
-                : <path strokeLinecap="round" d="M4 6h16M4 12h10M4 18h16"/>}
-            </svg>
-          </button>
-        </div>
-      </nav>
-
-      {/* Mobile drawer */}
-      <div
-        className={`lg:hidden overflow-hidden transition-all duration-400 ease-in-out ${open ? "max-h-[32rem] opacity-100" : "max-h-0 opacity-0"}`}
-        style={{ transitionTimingFunction: "cubic-bezier(0.22,1,0.36,1)" }}
-      >
-        <div className="bg-[#0D0D14] border-t border-[#C9A84C]/10 px-6 py-6 flex flex-col gap-1">
-
-          {/* Mobile user info or login links */}
-          {user ? (
-            <div className="flex items-center gap-3 pb-4 mb-2 border-b border-white/8">
-              <span className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#8B6914] flex items-center justify-center text-sm font-black text-[#0A0A0F] uppercase flex-shrink-0">
-                {displayName.charAt(0)}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm text-white font-medium truncate">{displayName}</p>
-                <p className="text-xs text-white/35 truncate">{user.email}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2 pb-4 mb-2 border-b border-white/8">
-              <button
-                onClick={() => handleNavClick("login")}
-                className="flex-1 py-2.5 text-xs font-semibold tracking-widest uppercase border border-white/15 text-white/60 hover:text-white hover:border-white/30 rounded-lg transition-colors text-center"
-              >
-                Login
-              </button>
-              <button
-                onClick={() => handleNavClick("signup")}
-                className="flex-1 py-2.5 text-xs font-black tracking-widest uppercase btn-gold text-[#0A0A0F] rounded-lg text-center"
-              >
-                Sign Up
-              </button>
-            </div>
-          )}
-
-          {navLinks.map(({ label, page, adminOnly }) => (
-            <a
-              key={label}
-              href="#"
-              onClick={(e) => handleNavClick(page, e)}
-              className={`flex items-center justify-between py-3 text-sm tracking-widest uppercase font-medium border-b border-white/5 last:border-0 transition-colors ${
-                adminOnly ? "text-[#C9A84C]/60 hover:text-[#C9A84C]" : "text-white/60 hover:text-[#C9A84C]"
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                {label}
-                {adminOnly && (
-                  <span className="text-[8px] bg-[#C9A84C]/20 text-[#C9A84C] px-1.5 py-0.5 rounded-full font-black tracking-wider uppercase">Admin</span>
-                )}
-              </span>
-              <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
-            </a>
-          ))}
-          <button
-            onClick={(e) => handleNavClick("finder", e)}
-            className="flex items-center justify-between py-3 text-sm text-white/60 hover:text-[#C9A84C] tracking-widest uppercase font-medium border-b border-white/5 transition-colors"
-          >
-            Find Your Watch
-            <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </button>
-          <button
-            onClick={(e) => handleNavClick("cart", e)}
-            className="flex items-center justify-between py-3 text-sm text-white/60 hover:text-[#C9A84C] tracking-widest uppercase font-medium border-b border-white/5 transition-colors"
-          >
-            Shopping Cart {cartCount > 0 && <span className="text-[#C9A84C] font-bold">({cartCount})</span>}
-          </button>
-
-          {/* Mobile: Profile & Logout (when logged in) */}
-          {user && (
-            <>
-              <button
-                onClick={() => handleNavClick("profile")}
-                className="flex items-center justify-between py-3 text-sm text-white/60 hover:text-[#C9A84C] tracking-widest uppercase font-medium border-b border-white/5 transition-colors"
-              >
-                Profile
-                <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex items-center justify-between py-3 text-sm text-red-400 hover:text-red-300 tracking-widest uppercase font-medium transition-colors"
-              >
-                Logout
-                <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                  <polyline points="16 17 21 12 16 7"/>
-                  <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-              </button>
-            </>
-          )}
-
-          {!user && (
-            <a href="#" onClick={(e) => handleNavClick("finder", e)} className="mt-4 btn-gold py-3 text-center text-[#0A0A0F] text-sm font-black tracking-widest uppercase rounded-sm">
-              Start Quiz
-            </a>
-          )}
-        </div>
-      </div>
-
-      <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} setPage={setPage} onProductClick={onProductClick} />
-    </header>
+      {/* Global Search Overlay */}
+      <SearchOverlay
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        setPage={setPage}
+        onProductClick={onProductClick}
+      />
+    </>
   );
 }
