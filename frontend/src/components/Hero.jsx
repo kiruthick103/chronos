@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function Hero({ setPage }) {
+export default function Hero({ setPage, onProductClick }) {
   const [scrollY, setScrollY] = useState(0);
   const [showFilm, setShowFilm] = useState(false);
 
@@ -120,16 +120,19 @@ export default function Hero({ setPage }) {
             <div className="absolute inset-0 rounded-full bg-[#D4AF37]/20 blur-3xl scale-95 animate-pulse" />
             
             {/* Luxury Watch Showcase Card */}
-            <div className="relative rounded-3xl p-6 bg-gradient-to-b from-[#161822]/90 to-[#0A0B10]/95 border border-[#D4AF37]/30 shadow-[0_30px_80px_rgba(0,0,0,0.85)] group">
+            <div 
+              onClick={() => onProductClick ? onProductClick("rolex-submariner-126610ln") : setPage("collection")}
+              className="relative rounded-3xl p-6 bg-gradient-to-b from-[#161822]/90 to-[#0A0B10]/95 border border-[#D4AF37]/30 shadow-[0_30px_80px_rgba(0,0,0,0.85)] group cursor-pointer hover:border-[#D4AF37]/60 transition-all duration-300"
+            >
               <div className="relative overflow-hidden rounded-2xl aspect-[4/5] bg-[#050608]">
                 <img
-                  src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1000&auto=format&fit=crop&q=85"
-                  alt="Rolex Submariner Date Certified Luxury Watch"
+                  src="/images/rolex-submariner-hero.png"
+                  alt="Rolex Submariner Date 41 Ref. 126610LN Certified Luxury Watch"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
                 
                 {/* Floating Authenticity Badge */}
-                <div className="absolute top-4 right-4 bg-[#090A0E]/90 backdrop-blur-md border border-[#D4AF37]/40 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl">
+                <div className="absolute top-4 right-4 bg-[#090A0E]/90 backdrop-blur-md border border-[#D4AF37]/40 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl z-10">
                   <svg className="w-3.5 h-3.5 text-[#D4AF37]" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
@@ -139,8 +142,8 @@ export default function Hero({ setPage }) {
                 </div>
 
                 {/* Bottom Overlay Label */}
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-[#090A0E] via-[#090A0E]/80 to-transparent p-5">
-                  <span className="text-[0.65rem] font-bold tracking-[0.2em] text-[#D4AF37] uppercase">
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-[#090A0E] via-[#090A0E]/85 to-transparent p-5 z-10">
+                  <span className="text-[0.65rem] font-bold tracking-[0.2em] text-[#D4AF37] uppercase block mb-1">
                     Rolex
                   </span>
                   <h3 className="font-display text-xl font-bold text-white leading-tight">
@@ -156,15 +159,15 @@ export default function Hero({ setPage }) {
               </div>
             </div>
 
-            {/* Micro Floating Badge Left */}
-            <div className="absolute -left-6 bottom-16 bg-[#0E1017]/95 border border-[#D4AF37]/30 rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl hidden sm:flex items-center gap-3">
+            {/* Micro Floating Badge Left - Positioned higher so it NEVER overlaps the bottom title */}
+            <div className="absolute -left-6 sm:-left-8 top-16 bg-[#0E1017]/95 border border-[#D4AF37]/30 rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl hidden sm:flex items-center gap-3 z-20 pointer-events-none">
               <div className="w-9 h-9 rounded-full bg-[#D4AF37]/15 flex items-center justify-center text-[#D4AF37]">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-[0.65rem] uppercase tracking-wider text-white/50">Calibration</p>
+                <p className="text-[0.62rem] uppercase tracking-wider text-white/50">Calibration</p>
                 <p className="text-xs font-bold text-white">+1.2 s/day (COSC)</p>
               </div>
             </div>

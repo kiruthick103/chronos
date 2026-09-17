@@ -137,7 +137,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
       }
 
       // 5. Price Slider Range Filter
-      if (p.price > maxPrice) {
+      if (maxPrice < 300000 && p.price > maxPrice) {
         return false;
       }
 

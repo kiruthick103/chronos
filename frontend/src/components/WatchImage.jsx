@@ -1,13 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function WatchImage({ src, alt, className = "", fallbackSize = "" }) {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef(null);
 
-  // Reset states if the src changes
+  // Reset states if the src changes and immediately check if already cached/complete
   useEffect(() => {
     setError(false);
-    setLoaded(false);
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+      setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
   }, [src]);
 
   if (error || !src) {
@@ -71,6 +76,7 @@ export default function WatchImage({ src, alt, className = "", fallbackSize = ""
         <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-white/[0.08] to-white/[0.03] animate-pulse rounded-lg" />
       )}
       <img
+        ref={imgRef}
         src={src}
         alt={alt || "Luxury Timepiece"}
         className={`${className} ${loaded ? "opacity-100" : "opacity-0"} transition-opacity duration-300`}

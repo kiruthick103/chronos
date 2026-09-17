@@ -232,7 +232,7 @@ function AppContent() {
           <Suspense fallback={<AuthLoader />}>
             {page === "home" && (
               <>
-                <Hero setPage={setPage} />
+                <Hero setPage={setPage} onProductClick={handleProductClick} />
                 <Brands />
                 <Categories setPage={setPage} setCollectionCategory={(filter) => handleSelectFilter(typeof filter === 'object' && filter !== null ? filter : { category: filter })} />
                 <Products onProductClick={handleProductClick} />
@@ -256,7 +256,7 @@ function AppContent() {
             {page === "about" && <About />}
             {page === "sell" && <SellWatch setPage={setPage} />}
             {page === "contact" && <Contact />}
-            {page === "cart" && <Cart />}
+            {page === "cart" && <Cart setPage={setPage} />}
             {page === "wishlist" && <Wishlist onProductClick={handleProductClick} setPage={setPage} />}
             {page === "admin" && (
               <ProtectedRoute adminOnly={true}>

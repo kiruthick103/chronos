@@ -9,24 +9,29 @@ const shippingOptions = [
   { id: "overnight", name: "Overnight Delivery", cost: 50 },
 ];
 
-function EmptyCart() {
+function EmptyCart({ setPage }) {
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-6 py-12">
-      <div className="w-20 h-20 rounded-full glass flex items-center justify-center mb-8 animate-bounce-slow">
-        <span className="text-5xl">🛒</span>
+      <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(212,175,55,0.15)]">
+        <svg className="w-9 h-9 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+        </svg>
       </div>
       <h2 className="font-display text-4xl font-bold text-white mb-3">Your Cart is Empty</h2>
       <p className="text-white/50 mb-10 max-w-md text-lg leading-relaxed">
         Discover our curated collection of luxury timepieces and find your perfect match.
       </p>
-      <a href="#" onClick={(e) => { e.preventDefault(); window.history.back(); }} className="btn-gold px-8 py-3 text-[#0A0A0F] text-sm font-black tracking-widest uppercase rounded-md">
-        Continue Shopping
-      </a>
+      <button 
+        onClick={() => (setPage ? setPage("collection") : window.history.back())} 
+        className="btn-gold px-8 py-3.5 text-[#0A0A0F] text-xs font-black tracking-widest uppercase rounded-md shadow-lg hover:shadow-[#D4AF37]/25 transition-all cursor-pointer"
+      >
+        Explore Collection
+      </button>
     </div>
   );
 }
 
-export default function Cart() {
+export default function Cart({ setPage }) {
   const { cart, removeFromCart, updateQuantity, cartTotal, clearCart, addOrder } = useCart();
   const [shipping, setShipping] = useState("standard");
   const [checkout, setCheckout] = useState(false);
@@ -44,7 +49,7 @@ export default function Cart() {
       <div className="min-h-screen pt-32 pb-12 px-5 sm:px-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="font-display text-5xl font-bold text-white mb-12">Shopping Cart</h1>
-          <EmptyCart />
+          <EmptyCart setPage={setPage} />
         </div>
       </div>
     );

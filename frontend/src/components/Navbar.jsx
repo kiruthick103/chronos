@@ -422,7 +422,7 @@ export default function Navbar({ currentPage, setPage, onProductClick, onSelectF
                     onClick={() => navigateTo("collection")}
                     className="block text-xs text-[#D4AF37] font-semibold"
                   >
-                    &bull; View All 32+ Watches
+                    &bull; View All 64+ Watches
                   </button>
                   <p className="text-[0.65rem] text-white/40 uppercase tracking-wider font-bold pt-1">
                     Featured Brands
