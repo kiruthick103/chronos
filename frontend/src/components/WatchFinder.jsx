@@ -143,11 +143,10 @@ function Quiz({ onComplete }) {
 }
 
 function Results({ answers, setPage, onProductClick }) {
-  const [wishlist, setWishlist] = useState(new Set());
   const [filter, setFilter] = useState("all");
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState(new Set());
-  const { addToCart, products } = useCart();
+  const { addToCart, toggleWishlist, wishlist, products } = useCart();
 
   const filtered = products.filter(w => {
     const budget = answers.budget?.max || 999999;
@@ -199,16 +198,28 @@ function Results({ answers, setPage, onProductClick }) {
               onChange={(e) => setFilter(e.target.value)}
               className="bg-white/5 border border-white/10 text-white text-sm px-3 py-2 rounded-sm focus:border-[#C9A84C] focus:outline-none transition-colors"
             >
-              <option value="all">Most Relevant</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="rating">Highest Rated</option>
+              <option value="all" className="bg-[#0A0A0F]">Best Match</option>
+              <option value="price-asc" className="bg-[#0A0A0F]">Price: Low to High</option>
+              <option value="price-desc" className="bg-[#0A0A0F]">Price: High to Low</option>
+              <option value="rating" className="bg-[#0A0A0F]">Highest Rated</option>
             </select>
           </div>
+
+          <button
+            onClick={() => setCompareMode(!compareMode)}
+            className={`px-4 py-2 rounded-sm text-sm font-semibold tracking-wider uppercase transition-all ${
+              compareMode ? "bg-[#C9A84C] text-[#0A0A0F]" : "bg-white/5 text-white hover:bg-white/10"
+            }`}
+          >
+            Compare ({selected.size})
+          </button>
         </div>
 
+        {/* Results Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {displayWatches.map((w) => (
+          {displayWatches.map((w) => {
+            const isWish = wishlist.some((item) => String(item.id) === String(w.id));
+            return (
             <div key={w.id} className="bg-[#111118] border border-white/5 rounded-2xl p-6 card-hover animate-fade-up cursor-pointer" onClick={() => onProductClick && onProductClick(w.id)}>
               <div className="h-40 mb-4 rounded-lg overflow-hidden bg-gradient-to-br from-[#C9A84C]/10">
                 <WatchImage src={w.image} alt={w.name} className="w-full h-full object-cover" fallbackSize="text-4xl" />
@@ -219,14 +230,14 @@ function Results({ answers, setPage, onProductClick }) {
                   <h3 className="text-white font-bold text-base">{w.name}</h3>
                 </div>
                 <button
-                  onClick={() => setWishlist(prev => {
-                    const next = new Set(prev);
-                    next.has(w.id) ? next.delete(w.id) : next.add(w.id);
-                    return next;
-                  })}
-                  className="text-white/30 hover:text-[#EF4444] transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleWishlist(w);
+                  }}
+                  className="text-white/30 hover:text-[#EF4444] transition-colors p-1"
+                  aria-label="Save to Wishlist"
                 >
-                  <svg className={`w-5 h-5 ${wishlist.has(w.id) ? "fill-[#EF4444]" : ""}`} fill={wishlist.has(w.id) ? "#EF4444" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                  <svg className={`w-5 h-5 ${isWish ? "fill-[#EF4444] text-[#EF4444]" : ""}`} fill={isWish ? "#EF4444" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                   </svg>
                 </button>
@@ -255,7 +266,8 @@ function Results({ answers, setPage, onProductClick }) {
                 </button>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       </div>
     </div>

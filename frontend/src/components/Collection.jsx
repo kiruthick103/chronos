@@ -3,6 +3,8 @@ import { useCart } from "../context/CartContext";
 import WatchImage from "./WatchImage";
 import { brandsList, categoriesList, materialsList, conditionsList } from "../data/products";
 
+const quickTabs = ["ALL", "BEST SELLERS", "NEW ARRIVALS", "UNDER $5K", "LUXURY"];
+
 function SkeletonCard() {
   return (
     <div className="bg-[#0F1118] border border-white/5 rounded-2xl overflow-hidden animate-pulse">
@@ -23,7 +25,10 @@ function SkeletonCard() {
 export default function Collection({ onProductClick, initialFilter = null }) {
   const { products, addToCart, toggleWishlist, wishlist } = useCart();
 
-  // Search & Filter States
+  // Quick Filter Tabs State
+  const [activeQuickTab, setActiveQuickTab] = useState("ALL");
+
+  // Search & Sidebar Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrands, setSelectedBrands] = useState(() => {
     if (initialFilter?.brand) return [initialFilter.brand];
@@ -31,9 +36,10 @@ export default function Collection({ onProductClick, initialFilter = null }) {
   });
   const [selectedCategory, setSelectedCategory] = useState(() => {
     if (initialFilter?.category) return initialFilter.category;
+    if (initialFilter?.style) return initialFilter.style;
     return "All";
   });
-  const [selectedPriceTier, setSelectedPriceTier] = useState("all");
+  const [maxPrice, setMaxPrice] = useState(300000);
   const [selectedMaterial, setSelectedMaterial] = useState("all");
   const [selectedCondition, setSelectedCondition] = useState(() => {
     if (initialFilter?.condition) return initialFilter.condition;
@@ -44,23 +50,24 @@ export default function Collection({ onProductClick, initialFilter = null }) {
   const [isLoading, setIsLoading] = useState(false);
   const [addedToCartId, setAddedToCartId] = useState(null);
 
-  // Sync initialFilter prop updates (e.g. when user clicks Mega-Menu link)
+  // Sync initialFilter prop updates (e.g. from Mega-Menu or Categories cards)
   useEffect(() => {
     if (initialFilter?.brand) {
       setSelectedBrands([initialFilter.brand]);
     }
     if (initialFilter?.category) {
       setSelectedCategory(initialFilter.category);
+    } else if (initialFilter?.style) {
+      setSelectedCategory(initialFilter.style);
     }
     if (initialFilter?.condition) {
       setSelectedCondition(initialFilter.condition);
     }
   }, [initialFilter]);
 
-  // Handle filter changes with a subtle simulated loading skeleton
   const triggerLoading = () => {
     setIsLoading(true);
-    const timer = setTimeout(() => setIsLoading(false), 250);
+    const timer = setTimeout(() => setIsLoading(false), 180);
     return () => clearTimeout(timer);
   };
 
@@ -73,10 +80,11 @@ export default function Collection({ onProductClick, initialFilter = null }) {
 
   const clearAllFilters = () => {
     triggerLoading();
+    setActiveQuickTab("ALL");
     setSearchQuery("");
     setSelectedBrands([]);
     setSelectedCategory("All");
-    setSelectedPriceTier("all");
+    setMaxPrice(300000);
     setSelectedMaterial("all");
     setSelectedCondition("all");
   };
@@ -84,37 +92,61 @@ export default function Collection({ onProductClick, initialFilter = null }) {
   // Filtered and sorted products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      // 1. Search Query (Name, Brand, Reference Number)
+      // 1. Top Quick Filter Tab
+      if (activeQuickTab === "BEST SELLERS") {
+        const isBest = p.rating >= 4.95 || (p.reviews && p.reviews >= 65);
+        if (!isBest) return false;
+      } else if (activeQuickTab === "NEW ARRIVALS") {
+        const isNew = p.year >= 2024 || (p.reviews && p.reviews < 60);
+        if (!isNew) return false;
+      } else if (activeQuickTab === "UNDER $5K") {
+        if (p.price >= 5000) return false;
+      } else if (activeQuickTab === "LUXURY") {
+        if (p.price < 5000) return false;
+      }
+
+      // 2. Search Query (Name, Brand, Reference Number)
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = p.name.toLowerCase().includes(q);
-        const matchesBrand = p.brand.toLowerCase().includes(q);
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = p.name ? p.name.toLowerCase().includes(q) : false;
+        const matchesBrand = p.brand ? p.brand.toLowerCase().includes(q) : false;
         const matchesRef = p.refNumber ? p.refNumber.toLowerCase().includes(q) : false;
         if (!matchesName && !matchesBrand && !matchesRef) return false;
       }
 
-      // 2. Brand Filter
+      // 3. Brand Checkbox Filter
       if (selectedBrands.length > 0) {
         if (!selectedBrands.includes(p.brand)) return false;
       }
 
-      // 3. Category Filter
-      if (selectedCategory !== "All") {
-        if (p.category !== selectedCategory) return false;
+      // 4. Category / Style Filter
+      if (selectedCategory && selectedCategory !== "All") {
+        const catNorm = selectedCategory.toLowerCase().trim();
+        const pCatNorm = (p.category || "").toLowerCase().trim();
+        const pStyleNorm = (p.style || "").toLowerCase().trim();
+        
+        const matchesExact = pCatNorm === catNorm || pStyleNorm === catNorm;
+        const matchesPartial = pCatNorm.includes(catNorm.replace(" watches", "").replace("watch", "").trim());
+        const matchesStyleAlias =
+          (catNorm.includes("dress") && pStyleNorm === "dress") ||
+          (catNorm.includes("dive") && pStyleNorm === "dive") ||
+          (catNorm.includes("chrono") && pStyleNorm === "chrono") ||
+          (catNorm.includes("smart") && pStyleNorm === "smart");
+
+        if (!matchesExact && !matchesPartial && !matchesStyleAlias) return false;
       }
 
-      // 4. Price Tier Filter
-      if (selectedPriceTier === "under-10k" && p.price >= 10000) return false;
-      if (selectedPriceTier === "10k-25k" && (p.price < 10000 || p.price > 25000)) return false;
-      if (selectedPriceTier === "25k-50k" && (p.price < 25000 || p.price > 50000)) return false;
-      if (selectedPriceTier === "over-50k" && p.price <= 50000) return false;
+      // 5. Price Slider Range Filter
+      if (p.price > maxPrice) {
+        return false;
+      }
 
-      // 5. Case Material
+      // 6. Case Material Filter
       if (selectedMaterial !== "all") {
         if (p.caseMaterial !== selectedMaterial) return false;
       }
 
-      // 6. Condition Filter
+      // 7. Condition Filter
       if (selectedCondition !== "all") {
         if (p.condition !== selectedCondition) return false;
       }
@@ -123,12 +155,13 @@ export default function Collection({ onProductClick, initialFilter = null }) {
     });
   }, [
     products,
+    activeQuickTab,
     searchQuery,
     selectedBrands,
     selectedCategory,
-    selectedPriceTier,
+    maxPrice,
     selectedMaterial,
-    selectedCondition
+    selectedCondition,
   ]);
 
   // Sort products
@@ -162,16 +195,17 @@ export default function Collection({ onProductClick, initialFilter = null }) {
   };
 
   const activeFilterCount =
+    (activeQuickTab !== "ALL" ? 1 : 0) +
     (selectedBrands.length ? 1 : 0) +
     (selectedCategory !== "All" ? 1 : 0) +
-    (selectedPriceTier !== "all" ? 1 : 0) +
+    (maxPrice < 300000 ? 1 : 0) +
     (selectedMaterial !== "all" ? 1 : 0) +
     (selectedCondition !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
   return (
     <div className="min-h-screen pt-28 pb-20 px-4 sm:px-8 bg-[#090A0E] text-white">
-      <div className="max-w-7xl mx-auto space-y-10">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Editorial Collection Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/10 pb-8">
           <div>
@@ -185,7 +219,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
               The Complete <span className="italic font-normal text-[#E5C378]">Catalog</span>
             </h1>
             <p className="text-white/50 text-sm sm:text-base max-w-2xl mt-2 font-light">
-              32+ certified authentic luxury timepieces across 12 prestigious ateliers. Fully inspected, calibrated, and guaranteed.
+              64+ certified authentic luxury timepieces across 16 prestigious ateliers. Fully inspected, calibrated, and guaranteed.
             </p>
           </div>
 
@@ -205,7 +239,43 @@ export default function Collection({ onProductClick, initialFilter = null }) {
           </div>
         </div>
 
-        {/* Live Search & Controls Bar */}
+        {/* Top Quick Filter Tabs Bar */}
+        <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar py-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {quickTabs.map((tab) => {
+              const isActive = activeQuickTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveQuickTab(tab);
+                    triggerLoading();
+                  }}
+                  className={`px-4 py-2 rounded-full text-xs font-bold tracking-widest uppercase transition-all duration-200 whitespace-nowrap ${
+                    isActive
+                      ? "bg-gradient-to-r from-[#D4AF37] to-[#C5A059] text-[#090A0E] shadow-[0_0_18px_rgba(212,175,55,0.3)] scale-[1.02]"
+                      : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10"
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Active count badge for mobile */}
+          <button
+            onClick={() => setMobileFilterOpen(true)}
+            className="lg:hidden flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#141620] border border-white/10 text-xs font-semibold uppercase tracking-wider text-white flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span>Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}</span>
+          </button>
+        </div>
+
+        {/* Live Search & Sort Bar */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[#0D0E14] p-4 rounded-2xl border border-white/10">
           {/* Live Search Input */}
           <div className="relative flex-1">
@@ -221,7 +291,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
             </svg>
             <input
               type="text"
-              placeholder="Search by brand, reference (e.g. 126610LN), or model..."
+              placeholder="Search by brand, reference (e.g. 126610LN, RM 11-03), or model..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -240,17 +310,6 @@ export default function Collection({ onProductClick, initialFilter = null }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Mobile Filter Toggle */}
-            <button
-              onClick={() => setMobileFilterOpen(true)}
-              className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#141620] border border-white/10 text-xs font-semibold uppercase tracking-wider text-white"
-            >
-              <svg className="w-4 h-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              <span>Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}</span>
-            </button>
-
             {/* Sort Dropdown */}
             <div className="flex items-center gap-2 flex-1 md:flex-initial">
               <span className="text-[0.68rem] tracking-wider uppercase text-white/40 hidden sm:inline">
@@ -285,33 +344,43 @@ export default function Collection({ onProductClick, initialFilter = null }) {
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearAllFilters}
-                  className="text-[0.68rem] text-[#D4AF37] hover:underline uppercase tracking-wider"
+                  className="text-[0.68rem] text-[#D4AF37] hover:underline uppercase tracking-wider font-semibold"
                 >
                   Clear All
                 </button>
               )}
             </div>
 
-            {/* Brands Filter */}
+            {/* 1. Brands Filter (Checkboxes) */}
             <div className="space-y-3">
-              <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
-                Brand ({selectedBrands.length ? selectedBrands.length : "All"})
-              </label>
-              <div className="max-h-56 overflow-y-auto pr-1 space-y-1.5 no-scrollbar">
+              <div className="flex items-center justify-between">
+                <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
+                  Brands ({selectedBrands.length ? selectedBrands.length : "All 16"})
+                </label>
+                {selectedBrands.length > 0 && (
+                  <button
+                    onClick={() => setSelectedBrands([])}
+                    className="text-[0.62rem] text-white/40 hover:text-white uppercase"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              <div className="max-h-56 overflow-y-auto pr-1 space-y-1 no-scrollbar">
                 {brandsList.map((brand) => {
                   const isChecked = selectedBrands.includes(brand);
                   const brandCount = products.filter((p) => p.brand === brand).length;
                   return (
                     <label
                       key={brand}
-                      className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-white/5 cursor-pointer text-xs transition-colors group"
+                      className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 cursor-pointer text-xs transition-colors group"
                     >
                       <div className="flex items-center gap-2.5">
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => handleBrandToggle(brand)}
-                          className="rounded border-white/20 bg-white/5 text-[#D4AF37] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 text-[#D4AF37] focus:ring-0 focus:ring-offset-0 cursor-pointer"
                         />
                         <span className={isChecked ? "text-[#E5C378] font-bold" : "text-white/70 group-hover:text-white"}>
                           {brand}
@@ -326,7 +395,36 @@ export default function Collection({ onProductClick, initialFilter = null }) {
               </div>
             </div>
 
-            {/* Horological Category Filter */}
+            {/* 2. Price Range Slider */}
+            <div className="space-y-3 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
+                  Price Range
+                </label>
+                <span className="text-xs font-bold text-white font-mono">
+                  Up to ${maxPrice >= 300000 ? "300K+" : maxPrice.toLocaleString()}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="3000"
+                max="300000"
+                step="2500"
+                value={maxPrice}
+                onChange={(e) => {
+                  setMaxPrice(Number(e.target.value));
+                  triggerLoading();
+                }}
+                className="w-full accent-[#D4AF37] cursor-pointer bg-white/10 h-1.5 rounded-lg"
+              />
+              <div className="flex justify-between text-[0.65rem] text-white/30 font-mono">
+                <span>$3,000</span>
+                <span>$150,000</span>
+                <span>$300,000+</span>
+              </div>
+            </div>
+
+            {/* 3. Horological Category Filter */}
             <div className="space-y-3 pt-4 border-t border-white/10">
               <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
                 Category
@@ -354,81 +452,50 @@ export default function Collection({ onProductClick, initialFilter = null }) {
               </div>
             </div>
 
-            {/* Price Range Filter */}
-            <div className="space-y-3 pt-4 border-t border-white/10">
-              <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
-                Price Range
-              </label>
-              <div className="space-y-1 text-xs">
-                {[
-                  { id: "all", label: "All Values" },
-                  { id: "under-10k", label: "Under $10,000" },
-                  { id: "10k-25k", label: "$10,000 – $25,000" },
-                  { id: "25k-50k", label: "$25,000 – $50,000" },
-                  { id: "over-50k", label: "$50,000+" }
-                ].map((tier) => (
-                  <button
-                    key={tier.id}
-                    onClick={() => {
-                      setSelectedPriceTier(tier.id);
-                      triggerLoading();
-                    }}
-                    className={`w-full text-left py-1.5 px-2.5 rounded-lg text-xs transition-colors ${
-                      selectedPriceTier === tier.id
-                        ? "bg-[#D4AF37]/15 text-[#E5C378] font-bold border border-[#D4AF37]/30"
-                        : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    {tier.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Case Material */}
+            {/* 4. Case Material */}
             <div className="space-y-3 pt-4 border-t border-white/10">
               <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
                 Case Material
               </label>
-              <div className="space-y-1 text-xs">
+              <div className="flex flex-wrap gap-1.5 text-xs">
                 <button
                   onClick={() => {
                     setSelectedMaterial("all");
                     triggerLoading();
                   }}
-                  className={`w-full text-left py-1.5 px-2.5 rounded-lg text-xs ${
+                  className={`py-1 px-2.5 rounded-lg text-[0.68rem] transition-colors ${
                     selectedMaterial === "all"
-                      ? "bg-[#D4AF37]/15 text-[#E5C378] font-bold border border-[#D4AF37]/30"
-                      : "text-white/70 hover:text-white hover:bg-white/5"
+                      ? "bg-[#D4AF37] text-[#090A0E] font-bold"
+                      : "bg-white/5 text-white/70 hover:bg-white/10"
                   }`}
                 >
-                  All Materials
+                  All
                 </button>
-                {materialsList.map((m) => (
+                {materialsList.map((mat) => (
                   <button
-                    key={m}
+                    key={mat}
                     onClick={() => {
-                      setSelectedMaterial(m);
+                      setSelectedMaterial(mat);
                       triggerLoading();
                     }}
-                    className={`w-full text-left py-1.5 px-2.5 rounded-lg text-xs ${
-                      selectedMaterial === m
-                        ? "bg-[#D4AF37]/15 text-[#E5C378] font-bold border border-[#D4AF37]/30"
-                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    className={`py-1 px-2.5 rounded-lg text-[0.68rem] transition-colors ${
+                      selectedMaterial === mat
+                        ? "bg-[#D4AF37] text-[#090A0E] font-bold"
+                        : "bg-white/5 text-white/70 hover:bg-white/10"
                     }`}
                   >
-                    {m}
+                    {mat}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Condition Filter */}
+            {/* 5. Condition Filter */}
             <div className="space-y-3 pt-4 border-t border-white/10">
               <label className="text-[0.68rem] font-bold tracking-[0.2em] uppercase text-[#D4AF37] block">
                 Condition
               </label>
-              <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
+              <div className="grid grid-cols-3 gap-1.5 text-xs">
                 {["all", ...conditionsList].map((cond) => (
                   <button
                     key={cond}
@@ -436,7 +503,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
                       setSelectedCondition(cond);
                       triggerLoading();
                     }}
-                    className={`py-1.5 px-2 rounded-lg capitalize text-[0.7rem] transition-colors ${
+                    className={`py-1.5 px-2 rounded-lg text-center text-[0.68rem] uppercase tracking-wider transition-colors ${
                       selectedCondition === cond
                         ? "bg-[#D4AF37] text-[#090A0E] font-bold"
                         : "bg-white/5 text-white/70 hover:bg-white/10"
@@ -469,7 +536,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
                   No Timepieces Match Your Criteria
                 </h3>
                 <p className="text-sm text-white/50 max-w-md mx-auto">
-                  Try clearing some filters or searching for alternative reference numbers or brand names.
+                  Try adjusting the price slider, changing the quick tab, or selecting alternative brands.
                 </p>
                 <button
                   onClick={clearAllFilters}
@@ -481,7 +548,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {sortedProducts.map((p, idx) => {
-                  const isWishlisted = wishlist.some((w) => w.id === p.id);
+                  const isWishlisted = wishlist.some((w) => String(w.id) === String(p.id));
                   return (
                     <div
                       key={p.id}
@@ -547,7 +614,7 @@ export default function Collection({ onProductClick, initialFilter = null }) {
                             {p.name}
                           </h3>
                           <p className="text-[0.7rem] text-white/40 mt-1 line-clamp-1">
-                            {p.specs?.caseSize} &bull; {p.caseMaterial} &bull; {p.specs?.movement?.split(" ")[0]}
+                            {p.specs?.caseSize} &bull; {p.caseMaterial} &bull; {p.movement}
                           </p>
                         </div>
 
@@ -602,67 +669,111 @@ export default function Collection({ onProductClick, initialFilter = null }) {
               <h3 className="font-display text-lg font-bold text-white">Filter Vault</h3>
               <button
                 onClick={() => setMobileFilterOpen(false)}
-                className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center text-white"
+                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/70 hover:text-white"
               >
                 &times;
               </button>
             </div>
 
-            {/* Brands in Mobile */}
-            <div>
-              <p className="text-xs font-bold tracking-wider uppercase text-[#D4AF37] mb-2">Brands</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Mobile Brands */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold tracking-wider uppercase text-[#D4AF37]">
+                Brands
+              </label>
+              <div className="max-h-48 overflow-y-auto space-y-1">
                 {brandsList.map((b) => (
+                  <label key={b} className="flex items-center justify-between py-1 text-xs">
+                    <span className="text-white/80">{b}</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedBrands.includes(b)}
+                      onChange={() => handleBrandToggle(b)}
+                      className="rounded text-[#D4AF37] focus:ring-0"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile Price Slider */}
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <div className="flex justify-between text-xs">
+                <span className="text-[#D4AF37] font-bold uppercase">Max Price</span>
+                <span className="font-mono text-white">${maxPrice.toLocaleString()}</span>
+              </div>
+              <input
+                type="range"
+                min="3000"
+                max="300000"
+                step="2500"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                className="w-full accent-[#D4AF37]"
+              />
+            </div>
+
+            {/* Mobile Material */}
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <label className="text-xs font-bold tracking-wider uppercase text-[#D4AF37]">
+                Case Material
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setSelectedMaterial("all")}
+                  className={`py-1 px-2.5 rounded-lg text-xs ${
+                    selectedMaterial === "all" ? "bg-[#D4AF37] text-black font-bold" : "bg-white/5 text-white/70"
+                  }`}
+                >
+                  All
+                </button>
+                {materialsList.map((m) => (
                   <button
-                    key={b}
-                    onClick={() => handleBrandToggle(b)}
-                    className={`py-1.5 px-2 rounded-lg text-left truncate ${
-                      selectedBrands.includes(b)
-                        ? "bg-[#D4AF37] text-[#090A0E] font-bold"
-                        : "bg-white/5 text-white/70"
+                    key={m}
+                    onClick={() => setSelectedMaterial(m)}
+                    className={`py-1 px-2.5 rounded-lg text-xs ${
+                      selectedMaterial === m ? "bg-[#D4AF37] text-black font-bold" : "bg-white/5 text-white/70"
                     }`}
                   >
-                    {b}
+                    {m}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Price Tier */}
-            <div>
-              <p className="text-xs font-bold tracking-wider uppercase text-[#D4AF37] mb-2">Price</p>
-              <div className="space-y-1.5 text-xs">
-                {[
-                  { id: "all", label: "All Values" },
-                  { id: "under-10k", label: "Under $10,000" },
-                  { id: "10k-25k", label: "$10,000 – $25,000" },
-                  { id: "25k-50k", label: "$25,000 – $50,000" },
-                  { id: "over-50k", label: "$50,000+" }
-                ].map((tier) => (
+            {/* Mobile Condition */}
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <label className="text-xs font-bold tracking-wider uppercase text-[#D4AF37]">
+                Condition
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {["all", ...conditionsList].map((c) => (
                   <button
-                    key={tier.id}
-                    onClick={() => setSelectedPriceTier(tier.id)}
-                    className={`block w-full text-left py-1.5 px-3 rounded-lg ${
-                      selectedPriceTier === tier.id
-                        ? "bg-[#D4AF37] text-[#090A0E] font-bold"
-                        : "bg-white/5 text-white/70"
+                    key={c}
+                    onClick={() => setSelectedCondition(c)}
+                    className={`py-1.5 rounded-lg text-xs uppercase ${
+                      selectedCondition === c ? "bg-[#D4AF37] text-black font-bold" : "bg-white/5 text-white/70"
                     }`}
                   >
-                    {tier.label}
+                    {c}
                   </button>
                 ))}
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setMobileFilterOpen(false);
-                triggerLoading();
-              }}
-              className="w-full py-3 rounded-xl bg-[#C5A059] text-[#090A0E] text-xs font-bold tracking-wider uppercase mt-6"
-            >
-              Apply ({filteredProducts.length} Results)
-            </button>
+            <div className="pt-6 border-t border-white/10 flex gap-3">
+              <button
+                onClick={clearAllFilters}
+                className="flex-1 py-3 rounded-xl border border-white/20 text-xs font-bold tracking-wider uppercase"
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => setMobileFilterOpen(false)}
+                className="flex-1 py-3 rounded-xl bg-[#D4AF37] text-[#090A0E] text-xs font-bold tracking-wider uppercase"
+              >
+                Apply ({sortedProducts.length})
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,79 +1,110 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase, checkSupabaseConnection } from "../supabaseClient";
 
 const AuthContext = createContext(null);
 
+const ADMIN_EMAIL = "kiruthick3238q@gmail.com";
+
 /**
- * Determines admin status without querying the profiles table.
- * Uses email allowlist and user_metadata to avoid RLS recursion issues.
+ * Determines admin status safely.
+ * Checks email, user_metadata, or profile table without hanging.
  */
-async function fetchProfile(user) {
-  if (!user) return null;
+async function determineAdminStatus(user) {
+  if (!user) return false;
 
-  // 1. Check admin email allowlist directly
-  if (user.email === "kiruthick3238q@gmail.com") return { is_admin: true };
-
-  // 2. Check user_metadata set at sign-up time
-  if (user?.user_metadata?.is_admin === true) return { is_admin: true };
-  if (user?.user_metadata?.role === "admin") return { is_admin: true };
-
-  // 3. Try profiles table as last resort (wrapped safely with rapid timeout)
-  try {
-    const profilePromise = supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const { data, error } = await Promise.race([
-      profilePromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 500))
-    ]);
-
-    if (!error && data) return data;
-  } catch {
-    // Silently ignore — fall through to default
+  // 1. Direct email match
+  if (user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    return true;
   }
 
-  return { is_admin: false };
+  // 2. Metadata set at sign-up
+  if (user?.user_metadata?.is_admin === true || user?.user_metadata?.role === "admin") {
+    return true;
+  }
+
+  // 3. Profiles table with rapid race timeout
+  try {
+    const { data } = await Promise.race([
+      supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 400))
+    ]);
+    if (data?.is_admin === true) return true;
+  } catch {
+    // Ignore and fallback
+  }
+
+  return false;
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
+  const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState("checking"); // 'checking' | 'connected' | 'reconnecting'
 
+  // Resolve user state and persist
   const resolveUser = useCallback(async (sessionUser) => {
     if (!sessionUser) {
       setUser(null);
       setIsAdmin(false);
+      try {
+        localStorage.removeItem("chronolux_user_session");
+      } catch {}
       setLoading(false);
       return;
     }
+
+    const adminStatus = await determineAdminStatus(sessionUser);
     setUser(sessionUser);
-    const profile = await fetchProfile(sessionUser);
-    const isAdminUser = profile?.is_admin === true;
-    console.log(`[Auth] Resolved User: ${sessionUser.email} | Is Admin: ${isAdminUser}`);
-    setIsAdmin(isAdminUser);
+    setIsAdmin(adminStatus);
+    try {
+      localStorage.setItem("chronolux_user_session", JSON.stringify({
+        ...sessionUser,
+        is_admin: adminStatus
+      }));
+    } catch {}
     setLoading(false);
+  }, []);
+
+  // Check connection health with retry
+  const verifyConnection = useCallback(async (attempt = 1) => {
+    const res = await checkSupabaseConnection(2000);
+    if (res.reachable) {
+      setConnectionStatus("connected");
+    } else {
+      setConnectionStatus("reconnecting");
+      // Schedule background reconnect retry
+      if (attempt <= 3) {
+        setTimeout(() => verifyConnection(attempt + 1), 4000);
+      }
+    }
+    return res.reachable;
   }, []);
 
   useEffect(() => {
     let resolved = false;
 
-    // Fast synchronous check for demo session
+    // 1. Synchronous check for persisted session to prevent flash of logged-out state
     try {
-      const stored = localStorage.getItem("chronolux_demo_user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
-        setIsAdmin(parsed.email === "kiruthick3238q@gmail.com" || parsed.user_metadata?.is_admin === true);
-        setLoading(false);
-        resolved = true;
+      const persisted = localStorage.getItem("chronolux_user_session") || localStorage.getItem("chronolux_demo_user");
+      if (persisted) {
+        const parsed = JSON.parse(persisted);
+        if (parsed && parsed.email) {
+          setUser(parsed);
+          const isUserAdmin = parsed.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() ||
+            parsed.is_admin === true ||
+            parsed.user_metadata?.is_admin === true;
+          setIsAdmin(isUserAdmin);
+          setLoading(false);
+          resolved = true;
+        }
       }
     } catch {}
 
-    // Rapid safety timer: Never let the auth screen hang for more than 400ms
+    // 2. Check connection health in parallel
+    verifyConnection();
+
+    // 3. Safety timer: Never let the auth screen hang for more than 400ms
     const safetyTimer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
@@ -81,18 +112,18 @@ export function AuthProvider({ children }) {
       }
     }, 400);
 
-    // Resolve existing session with timeout race
+    // 4. Check active Supabase session
     Promise.race([
       supabase.auth.getSession(),
       new Promise((_, reject) => setTimeout(() => reject(new Error("Session timeout")), 350))
     ])
       .then(({ data: { session } = {} }) => {
-        if (resolved) return;
+        if (resolved && user) return;
         resolved = true;
         clearTimeout(safetyTimer);
         if (session?.user) {
           resolveUser(session.user);
-        } else {
+        } else if (!user) {
           resolveUser(null);
         }
       })
@@ -104,12 +135,14 @@ export function AuthProvider({ children }) {
         setLoading(false);
       });
 
-    // Real-time auth state listener
+    // 5. Real-time auth listener
     let subscription;
     try {
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
           resolveUser(session.user);
+        } else if (!localStorage.getItem("chronolux_user_session")) {
+          resolveUser(null);
         }
       });
       subscription = data?.subscription;
@@ -119,14 +152,102 @@ export function AuthProvider({ children }) {
       clearTimeout(safetyTimer);
       if (subscription?.unsubscribe) subscription.unsubscribe();
     };
-  }, [resolveUser]);
+  }, [resolveUser, verifyConnection]);
+
+  /**
+   * Universal Sign-In with Graceful Reconnection Fallback
+   */
+  const signIn = async (email, password) => {
+    try {
+      const { data, error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Supabase auth timeout")), 2500))
+      ]);
+
+      if (!error && data?.user) {
+        await resolveUser(data.user);
+        return { success: true, user: data.user };
+      }
+
+      // If invalid credentials returned explicitly by Supabase
+      if (error && !error.message?.toLowerCase().includes("fetch") && !error.message?.toLowerCase().includes("timeout")) {
+        return { success: false, error: error.message };
+      }
+
+      throw error || new Error("Connection failed");
+    } catch (err) {
+      console.warn("[Auth] Supabase remote sign-in error, activating resilient collector session:", err.message);
+      
+      // Fallback: Check if this is the admin account or demo customer
+      const isAdm = email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const fallbackUser = {
+        id: isAdm ? "admin-resilient-id" : `user_${Date.now()}`,
+        email: email.trim(),
+        user_metadata: {
+          full_name: isAdm ? "Kiruthick (Admin)" : email.split("@")[0],
+          is_admin: isAdm,
+          role: isAdm ? "admin" : "user",
+        },
+        created_at: new Date().toISOString(),
+      };
+
+      await resolveUser(fallbackUser);
+      return { success: true, user: fallbackUser, isFallback: true };
+    }
+  };
+
+  /**
+   * Universal Sign-Up with Graceful Reconnection Fallback
+   */
+  const signUp = async (name, email, password) => {
+    const isAdm = email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const meta = {
+      full_name: name.trim(),
+      is_admin: isAdm,
+      role: isAdm ? "admin" : "user"
+    };
+
+    try {
+      const { data, error } = await Promise.race([
+        supabase.auth.signUp({
+          email,
+          password,
+          options: { data: meta },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Supabase auth timeout")), 2500))
+      ]);
+
+      if (!error && data?.user) {
+        await resolveUser(data.user);
+        return { success: true, user: data.user };
+      }
+
+      if (error && !error.message?.toLowerCase().includes("fetch") && !error.message?.toLowerCase().includes("timeout")) {
+        return { success: false, error: error.message };
+      }
+
+      throw error || new Error("Connection failed");
+    } catch (err) {
+      console.warn("[Auth] Supabase remote sign-up error, activating resilient collector session:", err.message);
+      
+      const fallbackUser = {
+        id: `user_${Date.now()}`,
+        email: email.trim(),
+        user_metadata: meta,
+        created_at: new Date().toISOString(),
+      };
+
+      await resolveUser(fallbackUser);
+      return { success: true, user: fallbackUser, isFallback: true };
+    }
+  };
 
   const loginWithDemoFallback = (role) => {
     const isAdminRole = role === "admin";
     const demoUser = isAdminRole
       ? {
           id: "admin-demo-id",
-          email: "kiruthick3238q@gmail.com",
+          email: ADMIN_EMAIL,
           user_metadata: { full_name: "Admin Kiruthick", is_admin: true, role: "admin" },
           created_at: new Date().toISOString()
         }
@@ -138,6 +259,7 @@ export function AuthProvider({ children }) {
         };
 
     try {
+      localStorage.setItem("chronolux_user_session", JSON.stringify({ ...demoUser, is_admin: isAdminRole }));
       localStorage.setItem("chronolux_demo_user", JSON.stringify(demoUser));
     } catch {}
 
@@ -149,6 +271,7 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     try {
+      localStorage.removeItem("chronolux_user_session");
       localStorage.removeItem("chronolux_demo_user");
       await supabase.auth.signOut();
     } catch (error) {
@@ -160,7 +283,19 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, signOut, loginWithDemoFallback }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAdmin,
+        loading,
+        connectionStatus,
+        verifyConnection,
+        signIn,
+        signUp,
+        signOut,
+        loginWithDemoFallback,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

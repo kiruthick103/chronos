@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";
 
 export default function Signup({ setPage }) {
+  const { signUp, connectionStatus } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +19,11 @@ export default function Signup({ setPage }) {
     setSuccess("");
 
     if (!name.trim()) {
-      setError("Please enter your name.");
+      setError("Please enter your full name.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      setError("Please enter a valid email address.");
       return;
     }
     if (password.length < 6) {
@@ -31,31 +36,17 @@ export default function Signup({ setPage }) {
     }
 
     setLoading(true);
-
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name.trim(),
-        },
-      },
-    });
-
+    const result = await signUp(name, email, password);
     setLoading(false);
 
-    if (signUpError) {
-      if (signUpError.message && signUpError.message.toLowerCase().includes("failed to fetch")) {
-        setError("Cannot connect to Supabase database. The project may be paused or offline. Please check your Supabase dashboard.");
-      } else {
-        setError(signUpError.message);
-      }
-    } else {
-      setSuccess("Account created! Redirecting you to the store…");
+    if (result.success) {
+      setSuccess("Account successfully created! Redirecting to Chronolux...");
       setTimeout(() => {
         setPage("home");
         window.scrollTo({ top: 0, behavior: "smooth" });
-      }, 1800);
+      }, 1200);
+    } else {
+      setError(result.error || "Unable to complete registration. Please try again.");
     }
   };
 
@@ -71,7 +62,7 @@ export default function Signup({ setPage }) {
         <div className="bg-[#0D0D14] border border-white/8 rounded-2xl p-8 sm:p-10 shadow-2xl backdrop-blur-sm">
 
           {/* Logo / Brand */}
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-6">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#8B6914] flex items-center justify-center shadow-[0_0_24px_rgba(201,168,76,0.35)] mb-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="8" stroke="#0A0A0F" strokeWidth="2"/>
@@ -81,8 +72,19 @@ export default function Signup({ setPage }) {
             <h1 className="text-2xl font-bold tracking-[0.12em] text-white uppercase">
               Chrono<span className="text-[#C9A84C]">lux</span>
             </h1>
-            <p className="text-white/40 text-sm mt-1 tracking-wider">Create your account</p>
+            <p className="text-white/40 text-sm mt-1 tracking-wider">Join The Collectors Guild</p>
           </div>
+
+          {/* Reconnect notice if cloud is waking up */}
+          {connectionStatus === "reconnecting" && (
+            <div className="mb-6 px-3.5 py-2.5 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/25 text-xs text-[#E5C378] flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A84C] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#C9A84C]"></span>
+              </span>
+              <span>Supabase Cloud Resuming &bull; Session auto-persists locally</span>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -123,7 +125,7 @@ export default function Signup({ setPage }) {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="John Doe"
+                  placeholder="James Bond"
                   className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-[#C9A84C]/60 focus:bg-white/[0.06] transition-all duration-200"
                 />
               </div>
@@ -249,15 +251,7 @@ export default function Signup({ setPage }) {
               disabled={loading || !!success}
               className="mt-2 w-full py-3.5 bg-gradient-to-r from-[#C9A84C] to-[#F0D080] text-[#0A0A0F] font-black text-sm tracking-[0.18em] uppercase rounded-xl hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(201,168,76,0.25)]"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  Creating account…
-                </span>
-              ) : "Create Account"}
+              {loading ? "Creating account…" : "Register Account"}
             </button>
           </form>
 

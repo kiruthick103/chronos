@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
 const ADMIN_EMAIL = "kiruthick3238q@gmail.com";
@@ -9,48 +8,40 @@ const USER_EMAIL = "userdemo@gmail.com";
 const USER_PASSWORD = "Password123";
 
 export default function Login({ setPage }) {
-  const { loginWithDemoFallback } = useAuth();
+  const { signIn, loginWithDemoFallback, connectionStatus, verifyConnection } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(null); // null | 'admin' | 'user'
   const [showPassword, setShowPassword] = useState(false);
+  const [reconnectingManual, setReconnectingManual] = useState(false);
 
-  const doLogin = async (loginEmail, loginPassword) => {
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
-      return signInError;
-    } catch (e) {
-      return { message: e.message || "Failed to fetch" };
-    }
+  const handleManualRetry = async () => {
+    setReconnectingManual(true);
+    await verifyConnection();
+    setTimeout(() => setReconnectingManual(false), 800);
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
-    const err = await doLogin(email, password);
-    setLoading(false);
-    if (err) {
-      if (err.message && err.message.toLowerCase().includes("failed to fetch")) {
-        if (email.trim().toLowerCase() === USER_EMAIL) {
-          loginWithDemoFallback("user");
-          return;
-        }
-        if (email.trim().toLowerCase() === ADMIN_EMAIL) {
-          loginWithDemoFallback("admin");
-          return;
-        }
-        setError("Cannot reach Supabase auth server (project may be paused or offline). Use the Demo buttons above to explore, or resume your Supabase project.");
-      } else {
-        setError(err.message);
-      }
+
+    if (!email.trim() || !password) {
+      setError("Please provide both email and password.");
+      return;
     }
-    // on success, AuthContext fires → App.jsx redirects to home automatically
+
+    setLoading(true);
+    const result = await signIn(email, password);
+    setLoading(false);
+
+    if (!result.success) {
+      setError(result.error || "Authentication failed. Please verify your credentials.");
+    } else {
+      setPage("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleDemoLogin = async (role) => {
@@ -63,49 +54,24 @@ export default function Login({ setPage }) {
     setEmail(demoEmail);
     setPassword(demoPassword);
     
-    await new Promise((r) => setTimeout(r, 600));
-
-    try {
-      let err = await doLogin(demoEmail, demoPassword);
-
-      // If the demo account doesn't exist yet, auto-register it and retry login
-      if (err && (err.message?.includes("Invalid login credentials") || err.message?.includes("not found"))) {
-        console.log(`Demo ${role} not found, attempting auto-registration...`);
-        const signUpMeta = role === "admin"
-          ? { full_name: "Admin Kiruthick", is_admin: true, role: "admin" }
-          : { full_name: "Demo Customer", is_admin: false };
-
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: demoEmail,
-          password: demoPassword,
-          options: { data: signUpMeta }
-        });
-
-        if (!signUpError) {
-          err = await doLogin(demoEmail, demoPassword);
-        }
-      }
-
-      // If Supabase is offline / paused / failed to fetch, seamlessly fall back to local demo session
-      if (err) {
-        console.warn(`[Login] Supabase sign-in unavailable (${err.message}). Entering local demo session.`);
-        loginWithDemoFallback(role);
-        setDemoLoading(null);
-        return;
-      }
-    } catch (networkErr) {
-      console.warn(`[Login] Network exception (${networkErr.message}). Entering local demo session.`);
-      loginWithDemoFallback(role);
-      setDemoLoading(null);
-      return;
-    }
-
+    await new Promise((r) => setTimeout(r, 400));
+    const result = await signIn(demoEmail, demoPassword);
     setDemoLoading(null);
+
+    if (result.success) {
+      setPage("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      // Fallback
+      loginWithDemoFallback(role);
+      setPage("home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#0A0A0F] flex items-center justify-center px-4 py-24">
-      {/* Background glow */}
+      {/* Ambient background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#C9A84C]/5 blur-[120px]" />
       </div>
@@ -115,7 +81,7 @@ export default function Login({ setPage }) {
         <div className="bg-[#0D0D14] border border-white/8 rounded-2xl p-8 sm:p-10 shadow-2xl backdrop-blur-sm">
 
           {/* Logo / Brand */}
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-6">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#C9A84C] to-[#8B6914] flex items-center justify-center shadow-[0_0_24px_rgba(201,168,76,0.35)] mb-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="8" stroke="#0A0A0F" strokeWidth="2"/>
@@ -125,10 +91,30 @@ export default function Login({ setPage }) {
             <h1 className="text-2xl font-bold tracking-[0.12em] text-white uppercase">
               Chrono<span className="text-[#C9A84C]">lux</span>
             </h1>
-            <p className="text-white/40 text-sm mt-1 tracking-wider">Welcome back</p>
+            <p className="text-white/40 text-sm mt-1 tracking-wider">Collector Portal Sign In</p>
           </div>
 
-          {/* ── Demo Login Banners ── */}
+          {/* Reconnect / Cloud Sync Status Banner */}
+          {connectionStatus === "reconnecting" && (
+            <div className="mb-6 px-3.5 py-2.5 rounded-xl bg-[#C9A84C]/10 border border-[#C9A84C]/25 text-xs text-[#E5C378] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C9A84C] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#C9A84C]"></span>
+                </span>
+                <span>Supabase Cloud Resuming &bull; Auto-reconnecting...</span>
+              </div>
+              <button
+                onClick={handleManualRetry}
+                disabled={reconnectingManual}
+                className="text-[0.68rem] tracking-wider uppercase font-bold text-white hover:text-[#C9A84C] underline disabled:opacity-50"
+              >
+                {reconnectingManual ? "Retrying..." : "Retry"}
+              </button>
+            </div>
+          )}
+
+          {/* Demo Login Banners */}
           <div className="mb-6 space-y-3">
             {/* User Demo */}
             <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
@@ -140,44 +126,17 @@ export default function Login({ setPage }) {
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-emerald-400 text-xs font-bold tracking-widest uppercase mb-1">User Demo</p>
+                  <p className="text-emerald-400 text-xs font-bold tracking-widest uppercase mb-1">Collector Demo</p>
                   <p className="text-white/50 text-xs leading-relaxed mb-3">
-                    Browse the store, add to cart, wishlist & checkout — no admin access.
+                    Browse timepieces, manage wishlist, add to cart &amp; checkout.
                   </p>
-                  <div className="flex flex-col gap-1 mb-3 font-mono text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/30 w-14 flex-shrink-0">Email</span>
-                      <span className="text-white/70 truncate">{USER_EMAIL}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/30 w-14 flex-shrink-0">Password</span>
-                      <span className="text-white/70">Password123</span>
-                    </div>
-                  </div>
                   <button
                     id="demo-user-login-btn"
                     onClick={() => handleDemoLogin("user")}
                     disabled={demoLoading || loading}
                     className="w-full py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-400 text-[#0A0A0F] text-xs font-black tracking-[0.15em] uppercase hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_2px_16px_rgba(16,185,129,0.2)]"
                   >
-                    {demoLoading === "user" ? (
-                      <>
-                        <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        Signing in…
-                      </>
-                    ) : (
-                      <>
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                          <polyline points="10 17 15 12 10 7"/>
-                          <line x1="15" y1="12" x2="3" y2="12"/>
-                        </svg>
-                        Try User Demo →
-                      </>
-                    )}
+                    {demoLoading === "user" ? "Authenticating..." : "1-Click Collector Demo →"}
                   </button>
                 </div>
               </div>
@@ -195,42 +154,15 @@ export default function Login({ setPage }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-[#C9A84C] text-xs font-bold tracking-widest uppercase mb-1">Admin Demo</p>
                   <p className="text-white/50 text-xs leading-relaxed mb-3">
-                    Full access including Admin Panel, orders & analytics.
+                    Full access to Horological Admin Panel, orders &amp; analytics.
                   </p>
-                  <div className="flex flex-col gap-1 mb-3 font-mono text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/30 w-14 flex-shrink-0">Email</span>
-                      <span className="text-white/70 truncate">{ADMIN_EMAIL}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/30 w-14 flex-shrink-0">Password</span>
-                      <span className="text-white/70">Kiruthick@123</span>
-                    </div>
-                  </div>
                   <button
                     id="demo-admin-login-btn"
                     onClick={() => handleDemoLogin("admin")}
                     disabled={demoLoading || loading}
                     className="w-full py-2.5 rounded-lg bg-gradient-to-r from-[#C9A84C] to-[#F0D080] text-[#0A0A0F] text-xs font-black tracking-[0.15em] uppercase hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_2px_16px_rgba(201,168,76,0.2)]"
                   >
-                    {demoLoading === "admin" ? (
-                      <>
-                        <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        Signing in…
-                      </>
-                    ) : (
-                      <>
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                          <polyline points="10 17 15 12 10 7"/>
-                          <line x1="15" y1="12" x2="3" y2="12"/>
-                        </svg>
-                        Try Admin Demo →
-                      </>
-                    )}
+                    {demoLoading === "admin" ? "Authenticating..." : "1-Click Admin Demo →"}
                   </button>
                 </div>
               </div>
@@ -329,15 +261,7 @@ export default function Login({ setPage }) {
               disabled={loading || demoLoading}
               className="mt-2 w-full py-3.5 bg-white/[0.06] border border-white/12 text-white font-bold text-sm tracking-[0.12em] uppercase rounded-xl hover:bg-white/[0.10] hover:border-white/20 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  Signing in…
-                </span>
-              ) : "Sign In"}
+              {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
 
@@ -349,7 +273,7 @@ export default function Login({ setPage }) {
               onClick={() => setPage("signup")}
               className="text-[#C9A84C] hover:text-[#F0D080] font-semibold transition-colors"
             >
-              Sign up
+              Create Account
             </button>
           </p>
         </div>

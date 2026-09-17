@@ -122,13 +122,17 @@ const categories = [
 ];
 
 export default function Categories({ setPage, setCollectionCategory }) {
-  const handleCategoryClick = (pageId) => {
-    setCollectionCategory(pageId);
+  const handleCategoryClick = (cat) => {
+    if (setCollectionCategory) {
+      setCollectionCategory({ category: cat.title, style: cat.pageId });
+    }
     setPage("collection");
   };
 
   const handleAllCategories = () => {
-    setCollectionCategory(null);
+    if (setCollectionCategory) {
+      setCollectionCategory(null);
+    }
     setPage("collection");
   };
 
@@ -159,7 +163,7 @@ export default function Categories({ setPage, setCollectionCategory }) {
           {categories.map((cat, i) => (
             <button
               key={cat.title}
-              onClick={() => handleCategoryClick(cat.pageId)}
+              onClick={() => handleCategoryClick(cat)}
               className={`group relative bg-gradient-to-br ${cat.gradient} border border-white/8 ${cat.borderHover} rounded-2xl p-6 sm:p-7 card-hover overflow-hidden flex flex-col gap-5 animate-fade-up text-left w-full`}
               style={{ animationDelay: `${i * 0.08}s` }}
               aria-label={`Browse ${cat.title}`}

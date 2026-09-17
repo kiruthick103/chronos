@@ -1,8 +1,10 @@
+import { useAuth } from "../context/AuthContext";
+
 const footerLinks = {
   Collections: ["Dress Watches", "Dive Watches", "Chronographs", "Smart Luxury", "Vintage Pieces", "Limited Editions"],
-  Brands: ["Rolex", "Patek Philippe", "Omega", "Cartier", "TAG Heuer", "IWC", "Breitling", "Audemars Piguet"],
+  Brands: ["Rolex", "Patek Philippe", "Audemars Piguet", "Omega", "Cartier", "Hublot", "Richard Mille", "Grand Seiko"],
   Services: ["Authentication", "Consignment", "Watch Servicing", "Insurance", "Gift Cards", "Trade-In Program"],
-  Company: ["Our Story", "Careers", "Press", "Sustainability", "Partner With Us", "Contact", "Admin Panel"],
+  Company: ["Our Story", "Careers", "Press", "Sustainability", "Partner With Us", "Contact"],
 };
 
 const socials = [
@@ -42,6 +44,28 @@ const socials = [
 ];
 
 export default function Footer({ setPage }) {
+  const { user, isAdmin } = useAuth();
+
+  const handleLinkClick = (e, link) => {
+    e.preventDefault();
+    if (!setPage) return;
+
+    if (link === "Our Story") {
+      setPage("about");
+    } else if (link === "Contact") {
+      setPage("contact");
+    } else if (link === "Trade-In Program" || link === "Consignment") {
+      setPage("sell");
+    } else if (["Dress Watches", "Dive Watches", "Chronographs", "Smart Luxury", "Vintage Pieces", "Limited Editions"].includes(link)) {
+      setPage("collection");
+    } else if (["Rolex", "Patek Philippe", "Audemars Piguet", "Omega", "Cartier", "Hublot", "Richard Mille", "Grand Seiko"].includes(link)) {
+      setPage("collection");
+    } else {
+      setPage("collection");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <footer className="bg-[#060608] border-t border-white/5">
       {/* Newsletter strip */}
@@ -80,8 +104,8 @@ export default function Footer({ setPage }) {
                 Chrono<span className="text-[#C9A84C]">lux</span>
               </span>
             </div>
-            <p className="text-white/35 text-sm leading-relaxed mb-6 max-w-xs">
-              The world's most trusted marketplace for pre-owned and new luxury timepieces. Authenticated. Guaranteed. Unforgettable.
+            <p className="text-white/35 text-sm leading-relaxed mb-6 max-w-xs font-light">
+              The premier certified marketplace for rare, modern, and vintage luxury timepieces. Authenticated. Insured. Guaranteed.
             </p>
             <div className="flex items-center gap-3">
               {socials.map(s => (
@@ -96,17 +120,23 @@ export default function Footer({ setPage }) {
               ))}
             </div>
 
-            {/* Trust badges */}
-            <div className="mt-7 space-y-2">
-              {["SSL Secured Checkout", "Official Brand Partners", "10,000+ Verified Reviews"].map(b => (
-                <div key={b} className="flex items-center gap-2 text-white/30 text-xs">
-                  <svg className="w-3 h-3 text-[#C9A84C] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M5 13l4 4L19 7"/>
+            {/* Authenticated Admin Access Link (Only for authorized admin users) */}
+            {user && isAdmin && (
+              <div className="mt-8 pt-4 border-t border-white/10">
+                <button
+                  onClick={() => {
+                    if (setPage) setPage("admin");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#D4AF37] hover:underline"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
-                  {b}
-                </div>
-              ))}
-            </div>
+                  <span>Horological Admin Vault &rarr;</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Link columns */}
@@ -118,13 +148,7 @@ export default function Footer({ setPage }) {
                   <li key={link}>
                     <a
                       href="#"
-                      onClick={(e) => {
-                        if (link === "Admin Panel" && setPage) {
-                          e.preventDefault();
-                          setPage("admin");
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }
-                      }}
+                      onClick={(e) => handleLinkClick(e, link)}
                       className="text-white/35 text-sm hover:text-[#C9A84C] transition-colors"
                     >
                       {link}
@@ -141,10 +165,10 @@ export default function Footer({ setPage }) {
       <div className="border-t border-white/5 px-6 py-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-white/20 text-xs">
-            © 2025 Chronolux. All rights reserved. Prices in USD. All timepieces independently authenticated.
+            &copy; {new Date().getFullYear()} Chronolux Geneva. All rights reserved. Prices in USD. Independently certified.
           </p>
           <div className="flex items-center gap-6">
-            {["Privacy Policy", "Terms of Use", "Cookie Settings", "Accessibility"].map(l => (
+            {["Privacy Policy", "Terms of Sale", "Cookie Settings", "Authenticity Guarantee"].map(l => (
               <a key={l} href="#" className="text-white/20 text-xs hover:text-white/40 transition-colors">
                 {l}
               </a>

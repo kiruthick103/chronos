@@ -870,56 +870,64 @@ export function CartProvider({ children }) {
 
       if (error) throw error;
 
-      if (data) {
+      if (data && data.length > 0) {
         const productIds = data.map(item => String(item.product_id));
         const list = (currentProducts || products).filter(p => productIds.includes(String(p.id)));
         setWishlist(list);
         try {
           localStorage.setItem("chronolux_wishlist", JSON.stringify(list));
         } catch {}
+      } else {
+        // If remote is empty, keep local wishlist if present
+        try {
+          const saved = localStorage.getItem("chronolux_wishlist");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setWishlist(parsed);
+            }
+          }
+        } catch {}
       }
     } catch (err) {
       console.warn("Failed to fetch wishlist from Supabase (using localStorage fallback):", err.message);
+      try {
+        const saved = localStorage.getItem("chronolux_wishlist");
+        if (saved) setWishlist(JSON.parse(saved));
+      } catch {}
     }
   };
 
-  const toggleWishlist = async (product) => {
-    const isWishlisted = wishlist.find((item) => item.id === product.id);
-    let updated;
+  const toggleWishlist = (product) => {
+    if (!product) return;
+    setWishlist((prevWishlist) => {
+      const isWishlisted = prevWishlist.some((item) => String(item.id) === String(product.id));
+      const updated = isWishlisted
+        ? prevWishlist.filter((item) => String(item.id) !== String(product.id))
+        : [product, ...prevWishlist];
 
-    if (isWishlisted) {
-      updated = wishlist.filter((item) => item.id !== product.id);
-      setWishlist(updated);
       try {
         localStorage.setItem("chronolux_wishlist", JSON.stringify(updated));
       } catch {}
 
-      if (!user) return;
-      try {
-        await supabase
-          .from("wishlists")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("product_id", String(product.id));
-      } catch (err) {
-        console.warn("Failed to remove item from Supabase wishlist:", err.message);
+      if (user) {
+        if (isWishlisted) {
+          supabase
+            .from("wishlists")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("product_id", String(product.id))
+            .catch(() => {});
+        } else {
+          supabase
+            .from("wishlists")
+            .insert([{ user_id: user.id, session_id: sessionId, product_id: String(product.id) }])
+            .catch(() => {});
+        }
       }
-    } else {
-      updated = [...wishlist, product];
-      setWishlist(updated);
-      try {
-        localStorage.setItem("chronolux_wishlist", JSON.stringify(updated));
-      } catch {}
 
-      if (!user) return;
-      try {
-        await supabase
-          .from("wishlists")
-          .insert([{ user_id: user.id, session_id: sessionId, product_id: String(product.id) }]);
-      } catch (err) {
-        console.warn("Failed to add item to Supabase wishlist:", err.message);
-      }
-    }
+      return updated;
+    });
   };
 
   const updateQuantity = async (productId, quantity) => {

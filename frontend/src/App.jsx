@@ -234,7 +234,7 @@ function AppContent() {
               <>
                 <Hero setPage={setPage} />
                 <Brands />
-                <Categories setPage={setPage} setCollectionCategory={(cat) => handleSelectFilter({ category: cat })} />
+                <Categories setPage={setPage} setCollectionCategory={(filter) => handleSelectFilter(typeof filter === 'object' && filter !== null ? filter : { category: filter })} />
                 <Products onProductClick={handleProductClick} />
                 <OfferBanner />
                 <Reviews />
@@ -257,7 +257,7 @@ function AppContent() {
             {page === "sell" && <SellWatch setPage={setPage} />}
             {page === "contact" && <Contact />}
             {page === "cart" && <Cart />}
-            {page === "wishlist" && <Wishlist onProductClick={handleProductClick} />}
+            {page === "wishlist" && <Wishlist onProductClick={handleProductClick} setPage={setPage} />}
             {page === "admin" && (
               <ProtectedRoute adminOnly={true}>
                 <AdminPanel />
